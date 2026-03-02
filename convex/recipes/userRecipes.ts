@@ -48,17 +48,17 @@ export const getUserRecipeById = query({
 });
 
 export const getUserRecipesByCookbook = query({
-  args: { userId: v.string(), categoryId: v.string() },
-  handler: async (ctx, { userId, categoryId }) => {
+  args: { userId: v.string(), cookbookCategory: v.string() },
+  handler: async (ctx, { userId, cookbookCategory }) => {
     const all = await ctx.db
       .query("userRecipes")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    if (categoryId === "favorites") {
+    if (cookbookCategory === "favorites") {
       return all.filter((r) => r.isFavorited);
     }
-    return all.filter((r) => r.cookbookCategory === categoryId);
+    return all.filter((r) => r.cookbookCategory === cookbookCategory);
   },
 });
 
