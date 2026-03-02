@@ -1,26 +1,225 @@
 @import "tailwindcss";
 
+/**
+ * ── Styling Pattern Documentation ──────────────────────────────
+ * 
+ * This codebase uses a hybrid approach: Tailwind utilities + inline styles.
+ * 
+ * USE TAILWIND FOR:
+ * - Layout: flex, grid, gap, padding, margin, positioning
+ * - Sizing: w-*, h-*, aspect-ratio
+ * - Typography: text-sm, font-semibold, truncate, leading-*
+ * - Borders: rounded-*, border (but borderColor in inline styles)
+ * - Transitions: transition-*, hover:*, active:*
+ * - Responsive: sm:*, md:*, lg:*
+ * 
+ * USE INLINE STYLES FOR:
+ * - Colors referencing CSS variables: style={{ color: "var(--ink)" }}
+ * - Background colors with CSS variables: style={{ backgroundColor: "var(--cream)" }}
+ * - Border colors with CSS variables: style={{ borderColor: "var(--line)" }}
+ * - Complex/dynamic backgrounds: linear-gradient, rgba with variables
+ * - Computed values based on constants: style={{ height: CLIP_HEIGHT }}
+ * 
+ * WHY THIS PATTERN:
+ * - CSS variables (--ink, --cream, etc.) aren't directly usable in Tailwind
+ *   without extra configuration. Inline styles provide direct access.
+ * - Tailwind handles responsive/interactive states better (hover, sm:, etc.)
+ * - This keeps tailwind.config minimal and avoids custom theme bloat
+ * 
+ * EXAMPLE (from RecipeHeader.tsx):
+ * ```tsx
+ * <div
+ *   className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 border-b"
+ *   style={{ backgroundColor: "var(--cream)", borderColor: "var(--line)" }}
+ * >
+ * ```
+ * - Tailwind: positioning, layout, spacing, border-b (border-width)
+ * - Inline: colors via CSS variables
+ */
+
+/* ── Design Tokens (appitito3 inspired) ─────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core palette */
+  --cream: #faf6f0;
+  --cream-warm: #f5ede2;
+  --parchment: #fffdf8;
+  --panel: #fffdf8;
+  
+  /* Text */
+  --ink: #1c1917;
+  --ink-secondary: #57534e;
+  --ink-muted: #a8a29e;
+  
+  /* Borders */
+  --line: #e7ddd0;
+  --line-strong: #d4c8b8;
+  
+  /* Accent */
+  --accent: #c2533a;
+  --accent-soft: #f8e0da;
+  --accent-deep: #9e3f2b;
+  
+  /* Secondary */
+  --sage: #6b7c5e;
+  --sage-soft: #e8eddf;
+  --sage-deep: #4a5840;
+  
+  /* Shadows */
+  --shadow-warm: rgba(120, 80, 50, 0.07);
+  --shadow-warm-strong: rgba(90, 55, 30, 0.14);
+  
+  /**
+   * Legacy aliases - use primary tokens above for new code:
+   * - --cream-dark    → use --cream-warm
+   * - --terracotta    → use --accent
+   * - --espresso      → use --ink
+   * - --warm-gray     → use --ink-secondary
+   * - --warm-gray-light → use --ink-muted
+   * - --surface       → use --panel
+   */
+  --cream-dark: var(--cream-warm);
+  --terracotta: var(--accent);
+  --terracotta-light: #e07b5a;
+  --terracotta-dark: var(--accent-deep);
+  --espresso: var(--ink);
+  --espresso-mid: var(--ink-secondary);
+  --warm-gray: var(--ink-secondary);
+  --warm-gray-light: var(--ink-muted);
+  --warm-gray-xlight: var(--line);
+  --surface: var(--panel);
+  --border: var(--line);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--cream);
+  --color-foreground: var(--ink);
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-nunito);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  color: var(--ink);
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  background-color: var(--cream);
+  /* Warm radial gradients like appitito3 */
+  background-image:
+    radial-gradient(ellipse 80% 50% at 10% -10%, #f0ddd0 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 5%, #e8ddd5 0%, transparent 50%),
+    radial-gradient(ellipse 50% 60% at 50% 100%, #f2e8dc 0%, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* ── Grain overlay ──────────────────────────────────────────── */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  z-index: 50;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+/* ── Focus styles ───────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 3px;
+}
+
+/* ── Selection ──────────────────────────────────────────────── */
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+
+/* ── Radix Dialog / Sheet animations ───────────────────────── */
+@keyframes dialog-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes dialog-overlay-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes sheet-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes sheet-slide-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+
+[data-state="open"][data-radix-dialog-overlay] {
+  animation: dialog-overlay-in 200ms ease;
+}
+[data-state="closed"][data-radix-dialog-overlay] {
+  animation: dialog-overlay-out 200ms ease;
+}
+
+/* ── Radix Tabs active state ────────────────────────────────── */
+[data-state="active"][role="tab"] {
+  background-color: var(--panel);
+  color: var(--ink) !important;
+  box-shadow: 0 1px 3px var(--shadow-warm);
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Utility ────────────────────────────────────────────────── */
+.font-display {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+.font-body {
+  font-family: var(--font-nunito), system-ui, sans-serif;
 }
