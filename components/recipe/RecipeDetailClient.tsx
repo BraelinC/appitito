@@ -8,7 +8,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowLeft } from "lucide-react";
 
-import { UserRecipe, COOKBOOK_CATEGORIES, isUserRecipe } from "@/lib/types";
+import { UserRecipe, COOKBOOK_CATEGORIES, isUserRecipe, getRecipeTitle, getRecipeIngredients, getRecipeInstructions } from "@/lib/types";
 import { formatTotalTime } from "@/lib/time";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -118,7 +118,7 @@ export function RecipeDetailClient({ id }: Props) {
       <RecipeHero
         imageUrl={recipe.imageUrl}
         instagramReelShortcode={recipe.instagramReelShortcode}
-        title={recipe.title}
+        title={getRecipeTitle(recipe)}
         fallbackEmoji={catMeta?.emoji}
       />
 
@@ -130,7 +130,7 @@ export function RecipeDetailClient({ id }: Props) {
             className="font-display text-2xl font-bold leading-snug"
             style={{ color: "var(--ink)" }}
           >
-            {recipe.title}
+            {getRecipeTitle(recipe)}
           </h1>
           {recipe.description && (
             <p
@@ -150,8 +150,8 @@ export function RecipeDetailClient({ id }: Props) {
         />
 
         <RecipeTabs
-          ingredients={recipe.ingredients}
-          instructions={recipe.instructions}
+          ingredients={getRecipeIngredients(recipe)}
+          instructions={getRecipeInstructions(recipe)}
         />
       </div>
 

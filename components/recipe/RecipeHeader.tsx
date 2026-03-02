@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, Heart, BookmarkPlus } from "lucide-react";
-import { UserRecipe } from "@/lib/types";
+import { UserRecipe, getRecipeTitle } from "@/lib/types";
 
 interface RecipeHeaderProps {
   recipe: UserRecipe;
@@ -34,7 +34,7 @@ export function RecipeHeader({ recipe, onBack, onFavorite, onSave }: RecipeHeade
         className="font-display font-semibold text-sm truncate flex-1 text-center"
         style={{ color: "var(--ink)" }}
       >
-        {recipe.title}
+        {getRecipeTitle(recipe)}
       </p>
 
       {/* Action buttons */}

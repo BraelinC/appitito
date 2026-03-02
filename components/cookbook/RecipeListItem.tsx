@@ -1,7 +1,7 @@
 "use client";
 
 import { Heart, ChevronRight } from "lucide-react";
-import { UserRecipe } from "@/lib/types";
+import { UserRecipe, getRecipeTitle } from "@/lib/types";
 
 interface RecipeListItemProps {
   recipe: UserRecipe;
@@ -36,7 +36,7 @@ export function RecipeListItem({ recipe, emoji, onOpen, onFavorite }: RecipeList
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={recipe.imageUrl}
-            alt={recipe.title}
+            alt={getRecipeTitle(recipe)}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -50,7 +50,7 @@ export function RecipeListItem({ recipe, emoji, onOpen, onFavorite }: RecipeList
           className="font-display font-semibold text-sm leading-tight truncate"
           style={{ color: "var(--ink)" }}
         >
-          {recipe.title}
+          {getRecipeTitle(recipe)}
         </p>
         {recipe.description && (
           <p

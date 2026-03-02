@@ -40,7 +40,7 @@ export function isCookbookStatArray(value: unknown): value is CookbookStat[] {
 
 /**
  * Type guard to check if a value is a valid UserRecipe
- * Validates all required fields and their types
+ * Validates required fields and their types
  */
 export function isUserRecipe(value: unknown): value is UserRecipe {
   if (!isObject(value)) return false;
@@ -51,11 +51,6 @@ export function isUserRecipe(value: unknown): value is UserRecipe {
     typeof value.userId === "string" &&
     typeof value.recipeType === "string" &&
     ["extracted", "community", "custom", "ai_generated"].includes(value.recipeType as string) &&
-    typeof value.title === "string" &&
-    Array.isArray(value.ingredients) &&
-    value.ingredients.every((i) => typeof i === "string") &&
-    Array.isArray(value.instructions) &&
-    value.instructions.every((i) => typeof i === "string") &&
     typeof value.isFavorited === "boolean" &&
     typeof value.createdAt === "number" &&
     typeof value.updatedAt === "number";
@@ -105,12 +100,12 @@ export interface UserRecipe {
   userId: string;
   recipeType: "extracted" | "community" | "custom" | "ai_generated";
 
-  // Enriched / resolved fields (after enrichUserRecipeWithSource)
-  title: string;
+  // Core fields (may be in customRecipeData for some records)
+  title?: string;
   description?: string;
   imageUrl?: string;
-  ingredients: string[];
-  instructions: string[];
+  ingredients?: string[];
+  instructions?: string[];
 
   servings?: string;
   prep_time?: string;
@@ -132,8 +127,45 @@ export interface UserRecipe {
   extractedRecipeId?: Id<"extractedRecipes">;
   communityRecipeId?: Id<"recipes">;
 
+  // Cached/fallback fields
+  cachedTitle?: string;
+  cachedImageUrl?: string;
+  customRecipeData?: {
+    title?: string;
+    description?: string;
+    imageUrl?: string;
+    ingredients?: string[];
+    instructions?: string[];
+    servings?: string;
+    prep_time?: string;
+    cook_time?: string;
+    cuisine?: string;
+  };
+
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * Helper to get the display title from a UserRecipe
+ * (handles customRecipeData and cachedTitle fallbacks)
+ */
+export function getRecipeTitle(recipe: UserRecipe): string {
+  return recipe.title ?? recipe.cachedTitle ?? recipe.customRecipeData?.title ?? "Untitled Recipe";
+}
+
+/**
+ * Helper to get ingredients from a UserRecipe
+ */
+export function getRecipeIngredients(recipe: UserRecipe): string[] {
+  return recipe.ingredients ?? recipe.customRecipeData?.ingredients ?? [];
+}
+
+/**
+ * Helper to get instructions from a UserRecipe
+ */
+export function getRecipeInstructions(recipe: UserRecipe): string[] {
+  return recipe.instructions ?? recipe.customRecipeData?.instructions ?? [];
 }
 
 export const COOKBOOK_CATEGORIES = [

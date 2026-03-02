@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X, Check, BookOpen } from "lucide-react";
 import { Spinner } from "@/components/ui/Spinner";
-import { COOKBOOK_CATEGORIES, UserRecipe } from "@/lib/types";
+import { COOKBOOK_CATEGORIES, UserRecipe, getRecipeTitle, getRecipeIngredients, getRecipeInstructions } from "@/lib/types";
 import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -36,11 +36,11 @@ export function CookbookSelectionSheet({
         userId: user.id,
         recipeType: recipe.recipeType as "extracted" | "community" | "custom",
         cookbookCategory: categoryId,
-        title: recipe.title,
+        title: getRecipeTitle(recipe as UserRecipe),
         description: recipe.description,
         imageUrl: recipe.imageUrl,
-        ingredients: recipe.ingredients ?? [],
-        instructions: recipe.instructions ?? [],
+        ingredients: getRecipeIngredients(recipe as UserRecipe),
+        instructions: getRecipeInstructions(recipe as UserRecipe),
         servings: recipe.servings,
         prep_time: recipe.prep_time,
         cook_time: recipe.cook_time,
@@ -110,7 +110,7 @@ export function CookbookSelectionSheet({
                   className="text-xs mt-0.5 leading-snug max-w-[220px] truncate"
                   style={{ color: "var(--ink-secondary)" }}
                 >
-                  {recipe.title}
+                  {getRecipeTitle(recipe as UserRecipe)}
                 </p>
               </div>
             </div>
