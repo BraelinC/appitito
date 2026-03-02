@@ -120,17 +120,24 @@ Based on the Instagram reel URL, extract or infer a plausible food recipe. Retur
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://appitito.com";
         const replyText = `🍽️ Got your reel! Here's the extracted recipe: ${appUrl}/recipe/${extractedId}`;
 
-        await fetch(`https://graph.instagram.com/v22.0/me/messages`, {
+        // Page token (EAA) → use Facebook Graph API page endpoint
+        // Instagram token (IGAAR) → use Instagram Graph API
+        const isPageToken = accessToken.startsWith("EAA");
+        const pageId = process.env.FB_PAGE_ID ?? "1088713657640083";
+        const replyUrl = isPageToken
+          ? `https://graph.facebook.com/v22.0/${pageId}/messages`
+          : `https://graph.instagram.com/v22.0/me/messages`;
+
+        const replyResp = await fetch(replyUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             recipient: { id: senderId },
             message: { text: replyText },
+            access_token: accessToken,
           }),
         });
+        console.log("Reply sent:", replyResp.status, await replyResp.text());
       }
     } catch (err) {
       console.error("extractAndReply error:", err);
