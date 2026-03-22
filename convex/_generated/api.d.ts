@@ -10,6 +10,8 @@
 
 import type * as http from "../http.js";
 import type * as instagram_extractRecipe from "../instagram/extractRecipe.js";
+import type * as instagram_oauth from "../instagram/oauth.js";
+import type * as instagram_oauthStore from "../instagram/oauthStore.js";
 import type * as instagram_webhook from "../instagram/webhook.js";
 import type * as recipes_userRecipes from "../recipes/userRecipes.js";
 
@@ -22,6 +24,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   http: typeof http;
   "instagram/extractRecipe": typeof instagram_extractRecipe;
+  "instagram/oauth": typeof instagram_oauth;
+  "instagram/oauthStore": typeof instagram_oauthStore;
   "instagram/webhook": typeof instagram_webhook;
   "recipes/userRecipes": typeof recipes_userRecipes;
 }>;

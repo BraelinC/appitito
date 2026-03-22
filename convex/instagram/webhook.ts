@@ -30,7 +30,12 @@ export const receive = httpAction(async (ctx, request) => {
     }
 
     for (const entry of body.entry ?? []) {
-      for (const event of entry.messaging ?? []) {
+      // Support both entry.messaging[] (old) and entry.changes[].value (new v25+)
+      const events = entry.messaging?.length
+        ? entry.messaging
+        : (entry.changes ?? []).filter((c: any) => c.field === "messages").map((c: any) => c.value);
+
+      for (const event of events) {
         const senderId = event.sender?.id;
         const messageText = event.message?.text ?? "";
 

@@ -103,4 +103,47 @@ export default defineSchema({
     processed: v.boolean(),
     createdAt: v.number(),
   }).index("by_sender", ["senderId"]),
+
+  connectedAccounts: defineTable({
+    igUserId: v.string(),
+    username: v.string(),
+    accessToken: v.string(),
+    expiresAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_ig_user_id", ["igUserId"]),
+
+  // ManyChat webhook logs for debugging
+  manychatLogs: defineTable({
+    payload: v.string(),
+    timestamp: v.number(),
+  }).index("by_timestamp", ["timestamp"]),
+
+  // Instagram DM auth tokens for magic link login
+  recipeAuthTokens: defineTable({
+    token: v.string(),
+    instagramId: v.string(),
+    instagramUsername: v.string(),
+    recipeId: v.string(),
+    used: v.boolean(),
+    usedBy: v.optional(v.string()),
+    createdAt: v.number(),
+    expiresAt: v.number(),
+  })
+    .index("by_token", ["token"])
+    .index("by_instagram", ["instagramId"])
+    .index("by_recipe", ["recipeId"]),
+
+  // Instagram users (linked from DMs)
+  instagramUsers: defineTable({
+    instagramId: v.string(),
+    instagramUsername: v.string(),
+    firstName: v.optional(v.string()),
+    clerkUserId: v.optional(v.string()),
+    email: v.optional(v.string()),
+    createdAt: v.number(),
+    lastSeenAt: v.number(),
+  })
+    .index("by_instagram_id", ["instagramId"])
+    .index("by_clerk_user", ["clerkUserId"]),
 });
