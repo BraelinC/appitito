@@ -72,6 +72,8 @@ export default defineSchema({
   extractedRecipes: defineTable({
     instagramReelShortcode: v.string(),
     reelUrl: v.optional(v.string()),
+    muxPlaybackId: v.optional(v.string()),
+    muxAssetId: v.optional(v.string()),
     title: v.string(),
     description: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
@@ -113,12 +115,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_ig_user_id", ["igUserId"]),
 
-  // ManyChat webhook logs for debugging
-  manychatLogs: defineTable({
-    payload: v.string(),
-    timestamp: v.number(),
-  }).index("by_timestamp", ["timestamp"]),
-
   // Instagram DM auth tokens for magic link login
   recipeAuthTokens: defineTable({
     token: v.string(),
@@ -141,6 +137,11 @@ export default defineSchema({
     firstName: v.optional(v.string()),
     clerkUserId: v.optional(v.string()),
     email: v.optional(v.string()),
+    zernioAccountId: v.optional(v.string()),
+    zernioConversationId: v.optional(v.string()),
+    onboardingClaimedAt: v.optional(v.number()),
+    lastReelReceivedAt: v.optional(v.number()),
+    onboardingReminderSentAt: v.optional(v.number()),
     createdAt: v.number(),
     lastSeenAt: v.number(),
   })

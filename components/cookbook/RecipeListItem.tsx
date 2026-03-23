@@ -1,6 +1,4 @@
 "use client";
-
-import { Heart, ChevronRight } from "lucide-react";
 import { UserRecipe, getRecipeTitle } from "@/lib/types";
 
 interface RecipeListItemProps {
@@ -75,23 +73,6 @@ export function RecipeListItem({ recipe, emoji, onOpen, onFavorite }: RecipeList
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 shrink-0">
-        <button
-          onClick={onFavorite}
-          className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--cream-warm)]"
-          aria-label={recipe.isFavorited ? "Remove from favourites" : "Add to favourites"}
-        >
-          <Heart
-            size={16}
-            style={{
-              color: recipe.isFavorited ? "var(--accent)" : "var(--ink-muted)",
-              fill: recipe.isFavorited ? "var(--accent)" : "transparent",
-            }}
-          />
-        </button>
-        <ChevronRight size={16} style={{ color: "var(--ink-muted)" }} aria-hidden="true" />
-      </div>
     </div>
   );
 }

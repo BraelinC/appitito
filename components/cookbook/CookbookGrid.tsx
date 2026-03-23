@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useUser } from "@clerk/nextjs";
+import { SignInButton, useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { COOKBOOK_CATEGORIES, CookbookStat, isCookbookStatArray } from "@/lib/types";
 import { CookbookSheet } from "./CookbookSheet";
 import { SkeletonGrid } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ function CookbookCategoryCard({ stat, emoji, onClick }: CookbookCategoryCardProp
 // ── Main grid ─────────────────────────────────────────────────
 
 export function CookbookGrid() {
-  const { user } = useUser();
+  const { isLoaded, user } = useUser();
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   const rawStats = useQuery(
@@ -118,6 +119,41 @@ export function CookbookGrid() {
   }, [stats]);
 
   const isLoading = rawStats === undefined;
+
+  if (!isLoaded) {
+    return (
+      <section className="flex-1 overflow-y-auto px-4 pt-8 pb-12 sm:px-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          <SkeletonGrid count={COOKBOOK_CATEGORIES.length} />
+        </div>
+      </section>
+    );
+  }
+
+  if (!user) {
+    return (
+      <section className="flex-1 overflow-y-auto px-4 pt-8 pb-12 sm:px-6">
+        <div
+          className="mx-auto max-w-xl rounded-[2rem] border px-6 py-10 text-center shadow-[0_18px_50px_var(--shadow-warm)]"
+          style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}
+        >
+          <EmptyState
+            icon="🍳"
+            title="Browse recipes first, sign in when you're ready"
+            description="DM recipe links can open without an account. Sign in only when you want to save recipes to your cookbook."
+          />
+          <SignInButton mode="modal">
+            <button
+              className="mx-auto rounded-full px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-90"
+              style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+            >
+              Sign in to save recipes
+            </button>
+          </SignInButton>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="flex-1 overflow-y-auto px-4 pt-8 pb-12 sm:px-6">

@@ -1,4 +1,4 @@
-import { action } from "./_generated/server";
+import { action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -14,7 +14,7 @@ export const extractFromCaption = action({
     senderName: v.string(),
   },
   handler: async (ctx, args) => {
-    const { caption, reelId, conversationId, accountId, senderName } = args;
+    const { caption, reelId, conversationId, accountId } = args;
     
     console.log("[Recipe] Extracting from caption:", caption.slice(0, 100));
     
@@ -65,7 +65,7 @@ RULES:
       // Remove markdown code blocks if present
       const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       recipe = JSON.parse(jsonStr);
-    } catch (e) {
+    } catch {
       console.error("[Recipe] Failed to parse:", content);
       recipe = { dishName: "Recipe", ingredients: [], instructions: [] };
     }
@@ -73,7 +73,6 @@ RULES:
     console.log("[Recipe] Extracted:", recipe.dishName);
 
     // Format reply message
-    const firstName = senderName.split(" ")[0];
     const ingredientsList = recipe.ingredients.slice(0, 8).map((i: string) => `• ${i}`).join("\n");
     const instructionsList = recipe.instructions.slice(0, 5).map((s: string, i: number) => `${i + 1}. ${s}`).join("\n");
 
@@ -108,5 +107,79 @@ Save the full recipe:
     }
 
     return recipe;
+  },
+});
+
+export const getExtractedRecipeByShortcode = internalQuery({
+  args: {
+    shortcode: v.string(),
+  },
+  handler: async (ctx, { shortcode }) => {
+    return await ctx.db
+      .query("extractedRecipes")
+      .withIndex("by_shortcode", (q) => q.eq("instagramReelShortcode", shortcode))
+      .first();
+  },
+});
+
+export const upsertExtractedRecipe = internalMutation({
+  args: {
+    shortcode: v.string(),
+    reelUrl: v.optional(v.string()),
+    muxPlaybackId: v.optional(v.string()),
+    muxAssetId: v.optional(v.string()),
+    title: v.string(),
+    description: v.optional(v.string()),
+    imageUrl: v.optional(v.string()),
+    ingredients: v.array(v.string()),
+    instructions: v.array(v.string()),
+    servings: v.optional(v.string()),
+    prep_time: v.optional(v.string()),
+    cook_time: v.optional(v.string()),
+    cuisine: v.optional(v.string()),
+    diet: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("extractedRecipes")
+      .withIndex("by_shortcode", (q) => q.eq("instagramReelShortcode", args.shortcode))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        reelUrl: args.reelUrl ?? existing.reelUrl,
+        muxPlaybackId: args.muxPlaybackId ?? existing.muxPlaybackId,
+        muxAssetId: args.muxAssetId ?? existing.muxAssetId,
+        title: args.title,
+        description: args.description,
+        imageUrl: args.imageUrl,
+        ingredients: args.ingredients,
+        instructions: args.instructions,
+        servings: args.servings,
+        prep_time: args.prep_time,
+        cook_time: args.cook_time,
+        cuisine: args.cuisine,
+        diet: args.diet,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("extractedRecipes", {
+      instagramReelShortcode: args.shortcode,
+      reelUrl: args.reelUrl,
+      muxPlaybackId: args.muxPlaybackId,
+      muxAssetId: args.muxAssetId,
+      title: args.title,
+      description: args.description,
+      imageUrl: args.imageUrl,
+      ingredients: args.ingredients,
+      instructions: args.instructions,
+      servings: args.servings,
+      prep_time: args.prep_time,
+      cook_time: args.cook_time,
+      cuisine: args.cuisine,
+      diet: args.diet,
+      extractedAt: Date.now(),
+    });
   },
 });

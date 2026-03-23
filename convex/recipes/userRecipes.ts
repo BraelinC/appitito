@@ -1,6 +1,5 @@
 import { query, mutation } from "../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
 
 const COOKBOOK_CATEGORIES = [
   { id: "favorites", name: "Favorites" },
@@ -41,9 +40,49 @@ export const getCookbookStats = query({
 });
 
 export const getUserRecipeById = query({
-  args: { recipeId: v.id("userRecipes") },
+  args: { recipeId: v.string() },
   handler: async (ctx, { recipeId }) => {
-    return await ctx.db.get(recipeId);
+    const userRecipeId = ctx.db.normalizeId("userRecipes", recipeId);
+    if (userRecipeId) {
+      const userRecipe = await ctx.db.get(userRecipeId);
+      if (userRecipe) {
+        return userRecipe;
+      }
+    }
+
+    const extractedRecipeId = ctx.db.normalizeId("extractedRecipes", recipeId);
+    if (!extractedRecipeId) {
+      return null;
+    }
+
+    const extractedRecipe = await ctx.db.get(extractedRecipeId);
+    if (!extractedRecipe) {
+      return null;
+    }
+
+    return {
+      _id: extractedRecipe._id,
+      userId: "anonymous",
+      recipeType: "extracted" as const,
+      title: extractedRecipe.title,
+      description: extractedRecipe.description,
+      imageUrl: extractedRecipe.imageUrl,
+      muxPlaybackId: extractedRecipe.muxPlaybackId,
+      muxAssetId: extractedRecipe.muxAssetId,
+      ingredients: extractedRecipe.ingredients,
+      instructions: extractedRecipe.instructions,
+      servings: extractedRecipe.servings,
+      prep_time: extractedRecipe.prep_time,
+      cook_time: extractedRecipe.cook_time,
+      cuisine: extractedRecipe.cuisine,
+      diet: extractedRecipe.diet,
+      isFavorited: false,
+      instagramReelShortcode: extractedRecipe.instagramReelShortcode,
+      reelUrl: extractedRecipe.reelUrl,
+      extractedRecipeId: extractedRecipe._id,
+      createdAt: extractedRecipe.extractedAt,
+      updatedAt: extractedRecipe.extractedAt,
+    };
   },
 });
 

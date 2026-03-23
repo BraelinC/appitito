@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 /**
@@ -103,6 +103,102 @@ export const validateAuthToken = mutation({
   },
 });
 
+export const getAuthTokenInfo = query({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tokenData = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!tokenData) {
+      return { valid: false, reason: "Token not found" };
+    }
+
+    if (tokenData.used) {
+      return { valid: false, reason: "Token already used" };
+    }
+
+    if (tokenData.expiresAt < Date.now()) {
+      return { valid: false, reason: "Token expired" };
+    }
+
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", tokenData.instagramId))
+      .first();
+
+    return {
+      valid: true,
+      instagramId: tokenData.instagramId,
+      instagramUsername: tokenData.instagramUsername,
+      recipeId: tokenData.recipeId,
+      clerkUserId: instagramUser?.clerkUserId,
+      isNewUser: !instagramUser?.clerkUserId,
+    };
+  },
+});
+
+export const consumeAuthToken = mutation({
+  args: {
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tokenData = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!tokenData) {
+      return { success: false, reason: "Token not found" };
+    }
+
+    if (tokenData.used) {
+      return { success: false, reason: "Token already used" };
+    }
+
+    if (tokenData.expiresAt < Date.now()) {
+      return { success: false, reason: "Token expired" };
+    }
+
+    await ctx.db.patch(tokenData._id, {
+      used: true,
+      usedBy: tokenData.instagramId,
+    });
+
+    return { success: true, instagramId: tokenData.instagramId };
+  },
+});
+
+export const resetAuthTokenIfUnused = internalMutation({
+  args: {
+    token: v.string(),
+    instagramId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tokenData = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_token", (q) => q.eq("token", args.token))
+      .first();
+
+    if (!tokenData) {
+      return { success: false, reason: "Token not found" };
+    }
+
+    if (tokenData.used && tokenData.usedBy === args.instagramId) {
+      await ctx.db.patch(tokenData._id, {
+        used: false,
+        usedBy: undefined,
+      });
+      return { success: true };
+    }
+
+    return { success: false, reason: "Token not eligible for reset" };
+  },
+});
+
 /**
  * Link Instagram account to Clerk user
  */
@@ -167,5 +263,159 @@ export const checkAuthToken = query({
       recipeId: tokenData.recipeId,
       instagramUsername: tokenData.instagramUsername,
     };
+  },
+});
+
+export const storeExternalAuthToken = internalMutation({
+  args: {
+    token: v.string(),
+    instagramId: v.string(),
+    instagramUsername: v.string(),
+    recipeId: v.string(),
+    firstName: v.optional(v.string()),
+    accountId: v.optional(v.string()),
+    conversationId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const existingUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", args.instagramId))
+      .first();
+
+    if (!existingUser) {
+      await ctx.db.insert("instagramUsers", {
+        instagramId: args.instagramId,
+        instagramUsername: args.instagramUsername,
+        firstName: args.firstName,
+        zernioAccountId: args.accountId,
+        zernioConversationId: args.conversationId,
+        createdAt: Date.now(),
+        lastSeenAt: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existingUser._id, {
+        instagramUsername: args.instagramUsername,
+        firstName: args.firstName ?? existingUser.firstName,
+        zernioAccountId: args.accountId ?? existingUser.zernioAccountId,
+        zernioConversationId: args.conversationId ?? existingUser.zernioConversationId,
+        lastSeenAt: Date.now(),
+      });
+    }
+
+    await ctx.db.insert("recipeAuthTokens", {
+      token: args.token,
+      instagramId: args.instagramId,
+      instagramUsername: args.instagramUsername,
+      recipeId: args.recipeId,
+      used: false,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
+    return { success: true };
+  },
+});
+
+export const markOnboardingClaimed = internalMutation({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+
+    if (!instagramUser) {
+      return { success: false, reason: "Instagram user not found" };
+    }
+
+    const claimedAt = Date.now();
+    await ctx.db.patch(instagramUser._id, {
+      onboardingClaimedAt: claimedAt,
+      onboardingReminderSentAt: undefined,
+      lastSeenAt: claimedAt,
+    });
+
+    return {
+      success: true,
+      accountId: instagramUser.zernioAccountId,
+      conversationId: instagramUser.zernioConversationId,
+      claimedAt,
+    };
+  },
+});
+
+export const markReelReceived = internalMutation({
+  args: {
+    instagramId: v.string(),
+    accountId: v.optional(v.string()),
+    conversationId: v.optional(v.string()),
+  },
+  handler: async (ctx, { instagramId, accountId, conversationId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+
+    if (!instagramUser) {
+      return { success: false, reason: "Instagram user not found" };
+    }
+
+    await ctx.db.patch(instagramUser._id, {
+      lastReelReceivedAt: Date.now(),
+      lastSeenAt: Date.now(),
+      zernioAccountId: accountId ?? instagramUser.zernioAccountId,
+      zernioConversationId: conversationId ?? instagramUser.zernioConversationId,
+    });
+
+    return { success: true };
+  },
+});
+
+export const getReminderStatus = internalQuery({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+
+    if (!instagramUser) {
+      return null;
+    }
+
+    return {
+      instagramId: instagramUser.instagramId,
+      accountId: instagramUser.zernioAccountId,
+      conversationId: instagramUser.zernioConversationId,
+      onboardingClaimedAt: instagramUser.onboardingClaimedAt,
+      lastReelReceivedAt: instagramUser.lastReelReceivedAt,
+      onboardingReminderSentAt: instagramUser.onboardingReminderSentAt,
+    };
+  },
+});
+
+export const markReminderSent = internalMutation({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+
+    if (!instagramUser) {
+      return { success: false, reason: "Instagram user not found" };
+    }
+
+    await ctx.db.patch(instagramUser._id, {
+      onboardingReminderSentAt: Date.now(),
+    });
+
+    return { success: true };
   },
 });

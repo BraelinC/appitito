@@ -13,7 +13,9 @@ import type * as instagram_extractRecipe from "../instagram/extractRecipe.js";
 import type * as instagram_oauth from "../instagram/oauth.js";
 import type * as instagram_oauthStore from "../instagram/oauthStore.js";
 import type * as instagram_webhook from "../instagram/webhook.js";
+import type * as instagramAuth from "../instagramAuth.js";
 import type * as recipes_userRecipes from "../recipes/userRecipes.js";
+import type * as zernioRecipe from "../zernioRecipe.js";
 
 import type {
   ApiFromModules,
@@ -27,7 +29,9 @@ declare const fullApi: ApiFromModules<{
   "instagram/oauth": typeof instagram_oauth;
   "instagram/oauthStore": typeof instagram_oauthStore;
   "instagram/webhook": typeof instagram_webhook;
+  instagramAuth: typeof instagramAuth;
   "recipes/userRecipes": typeof recipes_userRecipes;
+  zernioRecipe: typeof zernioRecipe;
 }>;
 
 /**

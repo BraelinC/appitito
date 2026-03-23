@@ -1,10 +1,11 @@
 "use client";
 
-import { ReelEmbed } from "./ReelEmbed";
+import MuxPlayer from "@mux/mux-player-react";
 
 interface RecipeHeroProps {
   imageUrl?: string;
-  instagramReelShortcode?: string;
+  muxPlaybackId?: string;
+  reelUrl?: string;
   title: string;
   fallbackEmoji?: string;
 }
@@ -14,15 +15,65 @@ interface RecipeHeroProps {
  */
 export function RecipeHero({ 
   imageUrl, 
-  instagramReelShortcode, 
+  muxPlaybackId,
+  reelUrl,
   title, 
   fallbackEmoji = "🍽️" 
 }: RecipeHeroProps) {
-  // Show Instagram reel if available
-  if (instagramReelShortcode) {
+  if (muxPlaybackId) {
     return (
       <div className="px-4 pt-2 pb-6">
-        <ReelEmbed shortcode={instagramReelShortcode} />
+        <div
+          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border"
+          style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
+        >
+          <MuxPlayer
+            playbackId={muxPlaybackId}
+            streamType="on-demand"
+            accentColor="var(--accent)"
+            autoPlay="muted"
+            muted
+            playsInline
+            poster={imageUrl ?? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg?time=1`}
+            className="absolute inset-0 block h-full w-full"
+            style={{
+              height: "100%",
+              width: "100%",
+              backgroundColor: "#000",
+              objectFit: "cover",
+              aspectRatio: "9 / 16",
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (reelUrl) {
+    return (
+      <div className="px-4 pt-2 pb-6">
+        <div
+          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border"
+          style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
+        >
+          <video
+            src={reelUrl}
+            controls
+            autoPlay
+            muted
+            playsInline
+            preload="metadata"
+            poster={imageUrl}
+            className="absolute inset-0 block h-full w-full object-cover"
+            style={{
+              height: "100%",
+              width: "100%",
+              backgroundColor: "#000",
+              objectFit: "cover",
+              aspectRatio: "9 / 16",
+            }}
+          />
+        </div>
       </div>
     );
   }

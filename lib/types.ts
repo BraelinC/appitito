@@ -62,7 +62,7 @@ export function isUserRecipe(value: unknown): value is UserRecipe {
     "description", "imageUrl", "servings", "prep_time", "cook_time",
     "cuisine", "diet", "category", "cookbookCategory",
     "muxPlaybackId", "muxAssetId", "instagramReelShortcode",
-    "extractedRecipeId", "communityRecipeId"
+    "reelUrl", "extractedRecipeId", "communityRecipeId"
   ];
 
   for (const field of optionalStringFields) {
@@ -122,6 +122,7 @@ export interface UserRecipe {
   muxPlaybackId?: string;
   muxAssetId?: string;
   instagramReelShortcode?: string;
+  reelUrl?: string;
 
   // Source references (for save flow)
   extractedRecipeId?: Id<"extractedRecipes">;

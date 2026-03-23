@@ -2,10 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowLeft } from "lucide-react";
 
 import { UserRecipe, COOKBOOK_CATEGORIES, isUserRecipe, getRecipeTitle, getRecipeIngredients, getRecipeInstructions } from "@/lib/types";
@@ -17,6 +16,7 @@ import { RecipeHeader } from "./RecipeHeader";
 import { RecipeHero } from "./RecipeHero";
 import { RecipeMetaStrip } from "./RecipeMetaStrip";
 import { RecipeTabs } from "./RecipeTabs";
+import { useDmTokenSignIn } from "@/components/auth/useDmTokenSignIn";
 
 interface Props {
   /** Pre-validated recipe ID */
@@ -29,14 +29,13 @@ interface Props {
  */
 export function RecipeDetailClient({ id }: Props) {
   const router = useRouter();
+  const { openSignIn } = useClerk();
   const { user } = useUser();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
+  const { isAutoSigningIn } = useDmTokenSignIn();
 
   // Fetch recipe data
-  const rawRecipe = useQuery(
-    api.recipes.userRecipes.getUserRecipeById,
-    user?.id ? { recipeId: id as Id<"userRecipes"> } : "skip"
-  );
+  const rawRecipe = useQuery(api.recipes.userRecipes.getUserRecipeById, { recipeId: id });
 
   // Validate response: undefined = loading, null = not found, UserRecipe = loaded
   const recipe: UserRecipe | null | undefined = 
@@ -45,14 +44,29 @@ export function RecipeDetailClient({ id }: Props) {
     isUserRecipe(rawRecipe) ? rawRecipe : null;
 
   const toggleFavorite = useMutation(api.recipes.userRecipes.toggleRecipeFavorite);
+  const canManageRecipe = !!user && recipe?.userId === user.id;
 
   async function handleFavorite() {
-    if (!user || !recipe) return;
+    if (!recipe) return;
+    if (!canManageRecipe) {
+      openSignIn();
+      return;
+    }
+
     try {
       await toggleFavorite({ userId: user.id, userRecipeId: recipe._id });
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
     }
+  }
+
+  function handleSave() {
+    if (!user) {
+      openSignIn();
+      return;
+    }
+
+    setShowSaveSheet(true);
   }
 
   // ── Loading state ───────────────────────────────────────────
@@ -110,20 +124,30 @@ export function RecipeDetailClient({ id }: Props) {
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: "var(--cream)" }}>
       <RecipeHeader
         recipe={recipe}
-        onBack={() => router.back()}
+        onBack={() => router.push("/")}
         onFavorite={handleFavorite}
-        onSave={() => setShowSaveSheet(true)}
+        onSave={handleSave}
       />
 
       <RecipeHero
         imageUrl={recipe.imageUrl}
-        instagramReelShortcode={recipe.instagramReelShortcode}
+        muxPlaybackId={recipe.muxPlaybackId}
+        reelUrl={recipe.reelUrl}
         title={getRecipeTitle(recipe)}
         fallbackEmoji={catMeta?.emoji}
       />
 
       {/* Content */}
-      <div className={`flex-1 px-5 relative z-10 ${recipe.instagramReelShortcode ? "" : "-mt-4"}`}>
+      <div className={`flex-1 px-5 relative z-10 ${recipe.muxPlaybackId || recipe.reelUrl ? "" : "-mt-4"}`}>
+        {!user && !isAutoSigningIn && (
+          <div
+            className="mb-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed"
+            style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)", color: "var(--ink-secondary)" }}
+          >
+            You&apos;re viewing this recipe as a guest. Sign in when you want to save it to your cookbook.
+          </div>
+        )}
+
         {/* Title & description */}
         <div className="mb-4">
           <h1
