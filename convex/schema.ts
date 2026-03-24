@@ -26,6 +26,7 @@ export default defineSchema({
     isFavorited: v.boolean(),
     muxPlaybackId: v.optional(v.string()),
     muxAssetId: v.optional(v.string()),
+    reelUrl: v.optional(v.string()),
     instagramReelShortcode: v.optional(v.string()),
     extractedRecipeId: v.optional(v.id("extractedRecipes")),
     communityRecipeId: v.optional(v.id("recipes")),

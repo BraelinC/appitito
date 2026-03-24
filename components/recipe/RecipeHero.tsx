@@ -22,9 +22,10 @@ export function RecipeHero({
 }: RecipeHeroProps) {
   if (muxPlaybackId) {
     return (
-      <div className="px-4 pt-2 pb-6">
+      <div className="px-4 pt-2 pb-4">
+        {/* Container uses max-h to ensure bookmark/description fit on first screen */}
         <div
-          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border"
+          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border max-h-[55svh]"
           style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
         >
           <MuxPlayer
@@ -51,9 +52,10 @@ export function RecipeHero({
 
   if (reelUrl) {
     return (
-      <div className="px-4 pt-2 pb-6">
+      <div className="px-4 pt-2 pb-4">
+        {/* Container uses max-h to ensure bookmark/description fit on first screen */}
         <div
-          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border"
+          className="relative mx-auto aspect-[9/16] w-full max-w-sm overflow-hidden rounded-2xl border max-h-[55svh]"
           style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
         >
           <video

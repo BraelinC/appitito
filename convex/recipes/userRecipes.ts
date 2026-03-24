@@ -122,6 +122,10 @@ export const saveRecipeToUserCookbook = mutation({
     time_minutes: v.optional(v.number()),
     cuisine: v.optional(v.string()),
     diet: v.optional(v.string()),
+    // Video fields
+    muxPlaybackId: v.optional(v.string()),
+    muxAssetId: v.optional(v.string()),
+    reelUrl: v.optional(v.string()),
     instagramReelShortcode: v.optional(v.string()),
     extractedRecipeId: v.optional(v.id("extractedRecipes")),
     communityRecipeId: v.optional(v.id("recipes")),
