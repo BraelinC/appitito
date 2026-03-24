@@ -88,7 +88,7 @@ export function InstacartTip() {
                 Add to Instacart
               </p>
               <p className="text-xs opacity-90 leading-relaxed">
-                Hold the bookmark to add ingredients directly to your Instacart cart
+                Hold down to shop with Instacart
               </p>
             </div>
           </div>
