@@ -196,7 +196,6 @@ export function RecipeDetailClient({ id }: Props) {
           totalTime={totalTime}
           servings={recipe.servings}
           cuisine={recipe.cuisine}
-          diet={recipe.diet}
         />
 
         <RecipeTabs

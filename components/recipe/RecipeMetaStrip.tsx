@@ -7,14 +7,13 @@ interface RecipeMetaStripProps {
   totalTime: string | null;
   servings?: string;
   cuisine?: string;
-  diet?: string;
 }
 
 /**
  * Horizontal strip showing recipe metadata (time, servings, cuisine, diet).
  */
-export function RecipeMetaStrip({ totalTime, servings, cuisine, diet }: RecipeMetaStripProps) {
-  const hasContent = totalTime || servings || cuisine || diet;
+export function RecipeMetaStrip({ totalTime, servings, cuisine }: RecipeMetaStripProps) {
+  const hasContent = totalTime || servings || cuisine;
 
   if (!hasContent) return null;
 
@@ -37,9 +36,6 @@ export function RecipeMetaStrip({ totalTime, servings, cuisine, diet }: RecipeMe
       )}
       {cuisine && (
         <MetaChip icon={<Globe size={13} />} label={cuisine} align="right" />
-      )}
-      {diet && (
-        <MetaChip icon={null} label={diet} align="right" />
       )}
     </div>
   );
