@@ -431,6 +431,7 @@ function ActionBubble({ children, className, active, label, onClick, expanded, t
         borderColor: active ? "var(--accent)" : "var(--ink)",
         backgroundColor: active ? "var(--accent)" : "var(--cream)",
         opacity: expanded ? 1 : 0,
+        pointerEvents: expanded ? "auto" : "none",
         transform: expanded ? transformWhenOpen : transformWhenClosed,
         transitionProperty: "transform, opacity",
         transitionDuration: expanded ? "320ms" : "200ms",
