@@ -419,3 +419,127 @@ export const markReminderSent = internalMutation({
     return { success: true };
   },
 });
+
+export const getWeeklyRecipeDeliveryCount = internalQuery({
+  args: {
+    instagramId: v.string(),
+    since: v.number(),
+  },
+  handler: async (ctx, { instagramId, since }) => {
+    const deliveries = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) =>
+        q.eq("instagramId", instagramId).gte("deliveredAt", since)
+      )
+      .collect();
+
+    return deliveries.length;
+  },
+});
+
+export const recordRecipeDelivery = internalMutation({
+  args: {
+    instagramId: v.string(),
+    recipeId: v.string(),
+  },
+  handler: async (ctx, { instagramId, recipeId }) => {
+    await ctx.db.insert("recipeDeliveries", {
+      instagramId,
+      recipeId,
+      deliveredAt: Date.now(),
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Get onboarding status for a Clerk user
+ * Returns whether to show the onboarding overlay (user has 0 saved recipes)
+ */
+export const getOnboardingStatus = query({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, { clerkUserId }) => {
+    // Find the linked Instagram user
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
+
+    // If no linked Instagram user, they haven't completed the DM flow
+    if (!instagramUser) {
+      return {
+        showOnboarding: false,
+        reason: "no_linked_instagram",
+      };
+    }
+
+    // Check if user has any saved recipes in their cookbook
+    const userRecipes = await ctx.db
+      .query("userRecipes")
+      .withIndex("by_user", (q) => q.eq("userId", clerkUserId))
+      .first();
+
+    const hasRecipes = userRecipes !== null;
+
+    return {
+      showOnboarding: !hasRecipes,
+      reason: hasRecipes ? "has_recipes" : "no_recipes",
+      instagramUsername: instagramUser.instagramUsername,
+    };
+  },
+});
+
+export const clearInstagramUserTestingData = mutation({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+
+    const recipeTokens = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_instagram", (q) => q.eq("instagramId", instagramId))
+      .collect();
+
+    const deliveries = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) => q.eq("instagramId", instagramId))
+      .collect();
+
+    for (const token of recipeTokens) {
+      await ctx.db.delete(token._id);
+    }
+
+    for (const delivery of deliveries) {
+      await ctx.db.delete(delivery._id);
+    }
+
+    if (instagramUser?.clerkUserId) {
+      const userRecipes = await ctx.db
+        .query("userRecipes")
+        .withIndex("by_user", (q) => q.eq("userId", instagramUser.clerkUserId!))
+        .collect();
+
+      for (const recipe of userRecipes) {
+        await ctx.db.delete(recipe._id);
+      }
+    }
+
+    if (instagramUser) {
+      await ctx.db.delete(instagramUser._id);
+    }
+
+    return {
+      success: true,
+      deletedInstagramUser: Boolean(instagramUser),
+      deletedTokens: recipeTokens.length,
+      deletedDeliveries: deliveries.length,
+    };
+  },
+});

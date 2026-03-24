@@ -1,11 +1,17 @@
 import { httpRouter } from "convex/server";
 import { type ActionCtx, httpAction, internalAction } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { verify, receive } from "./instagram/webhook";
 import { callback } from "./instagram/oauth";
+import { getAppUrl } from "./lib/appUrl";
+import { registerRoutes } from "@convex-dev/stripe";
 
 const http = httpRouter();
+
+registerRoutes(http, components.stripe, {
+  webhookPath: "/stripe/webhook",
+});
 
 type JsonRecord = Record<string, unknown>;
 type RunCtx = Pick<ActionCtx, "runQuery" | "runMutation">;
@@ -222,6 +228,7 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
             reel: reelContext,
             conversationId,
             accountId,
+            instagramId: senderId ?? undefined,
           });
 
           return new Response(JSON.stringify({ success: true, action: "recipe_extraction" }), {
@@ -495,11 +502,12 @@ http.route({
         instagramId,
       });
 
-      if (result.success) {
-        await ctx.scheduler.runAfter(10 * 60 * 1000, internal.http.sendOnboardingReminder, {
-          instagramId,
-        });
-      }
+      // TODO: Re-enable onboarding reminder once testing is complete
+      // if (result.success) {
+      //   await ctx.scheduler.runAfter(10 * 60 * 1000, internal.http.sendOnboardingReminder, {
+      //     instagramId,
+      //   });
+      // }
 
       return new Response(JSON.stringify(result), {
         status: 200,
@@ -560,6 +568,38 @@ http.route({
   handler: httpAction(async () => new Response(null, { status: 204, headers: corsHeaders() })),
 });
 
+http.route({
+  path: "/admin/clear-instagram-user",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    try {
+      const { instagramId } = await request.json();
+
+      if (!instagramId) {
+        return new Response(JSON.stringify({ success: false, error: "Missing instagramId" }), {
+          status: 400,
+          headers: corsHeaders(),
+        });
+      }
+
+      const result = await ctx.runMutation(api.instagramAuth.clearInstagramUserTestingData, {
+        instagramId,
+      });
+
+      return new Response(JSON.stringify(result), {
+        status: 200,
+        headers: corsHeaders(),
+      });
+    } catch (error) {
+      console.error("[Admin Clear Instagram User] Error:", error);
+      return new Response(JSON.stringify({ success: false, error: "Internal error" }), {
+        status: 500,
+        headers: corsHeaders(),
+      });
+    }
+  }),
+});
+
 // ── Helper Functions ──────────────────────────────────────────
 
 function corsHeaders() {
@@ -611,6 +651,7 @@ async function sendZernioReplyWithButton(
   }
 
   try {
+    console.log("[Zernio] Sending button reply URL:", buttonUrl);
     const response = await fetch(
       `https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`,
       {
@@ -731,7 +772,7 @@ async function sendCommentOnboardingReply(
     accountId: args.accountId,
   });
 
-  const onboardingLink = `${getAppUrl()}/claim?auth=${encodeURIComponent(token)}`;
+  const onboardingLink = `https://appitito.com/claim?auth=${encodeURIComponent(token)}`;
   await sendZernioPublicReplyToComment(
     args.accountId,
     args.postId,
@@ -759,6 +800,8 @@ async function sendDirectOnboardingReply(
   const token = crypto.randomUUID();
   const recipeId = `onboarding:${args.instagramId}`;
 
+  console.log("[Onboarding Debug][direct] preparing token for", args.instagramUsername, args.instagramId);
+
   await ctx.runMutation(internal.instagramAuth.storeExternalAuthToken, {
     token,
     instagramId: args.instagramId,
@@ -769,7 +812,8 @@ async function sendDirectOnboardingReply(
     conversationId: args.conversationId,
   });
 
-  const onboardingLink = `${getAppUrl()}/claim?auth=${encodeURIComponent(token)}`;
+  const onboardingLink = `https://appitito.com/claim?auth=${encodeURIComponent(token)}`;
+  console.log("[Onboarding Debug][direct] sending onboarding link:", onboardingLink);
   await sendZernioReplyWithButton(
     args.accountId,
     args.conversationId,
@@ -784,20 +828,41 @@ async function extractRecipeAndReply(
   ctx: RunCtx,
   reel: ReelContext,
   conversationId: string,
-  accountId: string
+  accountId: string,
+  instagramId?: string
 ) {
   console.log("[Recipe] Extracting from:", reel.caption.slice(0, 100) || reel.shortcode);
 
   try {
+    if (instagramId) {
+      const usage = await getRecipeUsageState(ctx, instagramId);
+      if (!usage.hasActiveSubscription && usage.weeklyCount >= 3) {
+        await sendZernioReplyWithButton(
+          accountId,
+          conversationId,
+          "You’ve used your 3 free recipes for this week. Upgrade to keep turning reels into recipes.",
+          "Upgrade",
+          "https://appitito.com/?billing=1"
+        );
+        return;
+      }
+    }
+
     const existingRecipeId = await getExistingExtractedRecipeId(ctx, reel.shortcode);
     if (existingRecipeId) {
+      const recipeUrl = buildRecipeUrl(existingRecipeId);
+      console.log("[Reply Debug][appUrl]", getAppUrl());
+      console.log("[Reply Debug][existingRecipe] URL:", recipeUrl);
       await sendZernioReplyWithButton(
         accountId,
         conversationId,
         "🍽️ I already had this one ready for you.",
         "View Recipe 🍳",
-        buildRecipeUrl(existingRecipeId)
+        recipeUrl
       );
+      if (instagramId) {
+        await recordRecipeDeliveryAndMaybeWarn(ctx, instagramId, String(existingRecipeId), accountId, conversationId);
+      }
       return;
     }
 
@@ -837,14 +902,20 @@ async function extractRecipeAndReply(
 
     const recipeId = await saveExtractedRecipe(ctx, reel, recipe, muxAsset);
     console.log("[Recipe] Extracted:", recipe.title, `via ${extractionMethod}`);
+    const recipeUrl = buildRecipeUrl(recipeId);
+    console.log("[Reply Debug][appUrl]", getAppUrl());
+    console.log("[Reply Debug][newRecipe] URL:", recipeUrl);
 
     await sendZernioReplyWithButton(
-      accountId, 
-      conversationId, 
+      accountId,
+      conversationId,
       `🍽️ ${recipe.title}\n\nYour recipe is ready!`,
       "View Recipe 🍳",
-      buildRecipeUrl(recipeId)
+      recipeUrl
     );
+    if (instagramId) {
+      await recordRecipeDeliveryAndMaybeWarn(ctx, instagramId, String(recipeId), accountId, conversationId);
+    }
   } catch (err) {
     console.error("[Recipe] Error:", err);
 
@@ -1324,8 +1395,7 @@ async function findConversationIdForInstagramUser(accountId: string, instagramId
 }
 
 function buildRecipeUrl(recipeId: string) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://appitito.com";
-  return `${appUrl}/recipe/${recipeId}`;
+  return `https://appitito.com/recipe/${recipeId}`;
 }
 
 function parseRecipeDraft(content: string, reel: ReelContext): RecipeDraft | null {
@@ -1414,10 +1484,6 @@ function basicAuth(username: string, password: string) {
   return btoa(`${username}:${password}`);
 }
 
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "https://appitito.vercel.app";
-}
-
 function isRecipeKeywordComment(text: string) {
   return isRecipeKeywordMessage(text);
 }
@@ -1494,9 +1560,10 @@ export const processZernioReel = internalAction({
     }),
     conversationId: v.string(),
     accountId: v.string(),
+    instagramId: v.optional(v.string()),
   },
-  handler: async (ctx, { reel, conversationId, accountId }) => {
-    await extractRecipeAndReply(ctx, reel, conversationId, accountId);
+  handler: async (ctx, { reel, conversationId, accountId, instagramId }) => {
+    await extractRecipeAndReply(ctx, reel, conversationId, accountId, instagramId);
   },
 });
 
@@ -1513,6 +1580,52 @@ export const processCommentOnboarding = internalAction({
     await sendCommentOnboardingReply(ctx, args);
   },
 });
+
+async function getRecipeUsageState(ctx: RunCtx, instagramId: string) {
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weeklyCount = await ctx.runQuery(internal.instagramAuth.getWeeklyRecipeDeliveryCount, {
+    instagramId,
+    since,
+  }) as number;
+
+  const instagramUser = await ctx.runQuery(api.instagramAuth.getInstagramUser, {
+    instagramId,
+  }) as { clerkUserId?: string } | null;
+
+  let hasActiveSubscription = false;
+  if (instagramUser?.clerkUserId) {
+    const subscriptions = await ctx.runQuery(components.stripe.public.listSubscriptionsByUserId, {
+      userId: instagramUser.clerkUserId,
+    }) as Array<{ status: string }>;
+    hasActiveSubscription = subscriptions.some((subscription) =>
+      subscription.status === "active" || subscription.status === "trialing"
+    );
+  }
+
+  return { weeklyCount, hasActiveSubscription };
+}
+
+async function recordRecipeDeliveryAndMaybeWarn(
+  ctx: RunCtx,
+  instagramId: string,
+  recipeId: string,
+  accountId: string,
+  conversationId: string
+) {
+  const usage = await getRecipeUsageState(ctx, instagramId);
+  await ctx.runMutation(internal.instagramAuth.recordRecipeDelivery, {
+    instagramId,
+    recipeId,
+  });
+
+  if (!usage.hasActiveSubscription && usage.weeklyCount === 1) {
+    await sendZernioReply(
+      accountId,
+      conversationId,
+      "Hey, you're going to hit your weekly limit. You'll have one more for the week."
+    );
+  }
+}
 
 export const sendOnboardingReminder = internalAction({
   args: {

@@ -1,32 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 import { Header } from "@/components/Header";
 import { CookbookGrid } from "@/components/cookbook/CookbookGrid";
+import { BillingModal } from "@/components/billing/BillingModal";
 
 export function HomeClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  const claimed = searchParams.get("claimed") === "1";
+  const [billingOpen, setBillingOpen] = useState(searchParams.get("billing") === "1");
 
-  useEffect(() => {
-    if (claimed) {
-      const timeout = window.setTimeout(() => {
-        router.replace("/");
-      }, 0);
+  const { isLoaded, user } = useUser();
 
-      return () => window.clearTimeout(timeout);
-    }
-  }, [claimed, router]);
+  // Query onboarding status based on delivered recipe count
+  const onboardingStatus = useQuery(
+    api.instagramAuth.getOnboardingStatus,
+    isLoaded && user?.id ? { clerkUserId: user.id } : "skip"
+  );
+
+  // Show onboarding overlay if:
+  // - User is logged in
+  // - User is linked to Instagram
+  // - User has 0 delivered recipes
+  const showOnboarding = onboardingStatus?.showOnboarding === true;
 
   return (
     <main className="min-h-screen">
+      <BillingModal open={billingOpen} onOpenChange={setBillingOpen} />
       <Header />
       <CookbookGrid />
-      {claimed ? <OnboardingState /> : null}
+      {showOnboarding ? <OnboardingState /> : null}
     </main>
   );
 }
