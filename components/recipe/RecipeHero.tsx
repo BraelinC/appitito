@@ -22,61 +22,68 @@ export function RecipeHero({
 }: RecipeHeroProps) {
   if (muxPlaybackId) {
     return (
-      <div className="px-4 pt-2 pb-4 flex justify-center">
+      <div className="px-4 pt-2 pb-4">
         {/*
-          Responsive video scaling:
-          - max-h-[55svh] caps height to 55% of viewport
-          - MuxPlayer maintains 9:16 aspect ratio and scales width proportionally
-          - Video shrinks on smaller phones, grows on larger ones
+          Black pillarbox container with centered video:
+          - Outer container has black bg and rounded corners
+          - Video scales to 55svh max height with 9:16 aspect ratio
+          - Black bars show on sides when video doesn't fill width
         */}
-        <MuxPlayer
-          playbackId={muxPlaybackId}
-          streamType="on-demand"
-          accentColor="var(--accent)"
-          autoPlay="muted"
-          muted
-          playsInline
-          poster={imageUrl ?? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg?time=1`}
-          className="rounded-2xl border max-h-[55svh]"
-          style={{
-            aspectRatio: "9 / 16",
-            width: "auto",
-            height: "auto",
-            maxHeight: "55svh",
-            borderColor: "var(--line)",
-            backgroundColor: "#000",
-          }}
-        />
+        <div
+          className="relative mx-auto w-full max-w-sm h-[55svh] rounded-2xl border overflow-hidden flex items-center justify-center"
+          style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
+        >
+          <MuxPlayer
+            playbackId={muxPlaybackId}
+            streamType="on-demand"
+            accentColor="var(--accent)"
+            autoPlay="muted"
+            muted
+            playsInline
+            poster={imageUrl ?? `https://image.mux.com/${muxPlaybackId}/thumbnail.jpg?time=1`}
+            className="h-full"
+            style={{
+              aspectRatio: "9 / 16",
+              width: "auto",
+              height: "100%",
+              backgroundColor: "#000",
+            }}
+          />
+        </div>
       </div>
     );
   }
 
   if (reelUrl) {
     return (
-      <div className="px-4 pt-2 pb-4 flex justify-center">
+      <div className="px-4 pt-2 pb-4">
         {/*
-          Responsive video scaling:
-          - max-h-[55svh] caps height to 55% of viewport
-          - Video maintains 9:16 aspect ratio and scales width proportionally
+          Black pillarbox container with centered video:
+          - Outer container has black bg and rounded corners
+          - Video scales to 55svh max height with 9:16 aspect ratio
+          - Black bars show on sides when video doesn't fill width
         */}
-        <video
-          src={reelUrl}
-          controls
-          autoPlay
-          muted
-          playsInline
-          preload="metadata"
-          poster={imageUrl}
-          className="rounded-2xl border max-h-[55svh]"
-          style={{
-            aspectRatio: "9 / 16",
-            width: "auto",
-            height: "auto",
-            maxHeight: "55svh",
-            borderColor: "var(--line)",
-            backgroundColor: "#000",
-          }}
-        />
+        <div
+          className="relative mx-auto w-full max-w-sm h-[55svh] rounded-2xl border overflow-hidden flex items-center justify-center"
+          style={{ borderColor: "var(--line)", backgroundColor: "#000" }}
+        >
+          <video
+            src={reelUrl}
+            controls
+            autoPlay
+            muted
+            playsInline
+            preload="metadata"
+            poster={imageUrl}
+            className="h-full"
+            style={{
+              aspectRatio: "9 / 16",
+              width: "auto",
+              height: "100%",
+              backgroundColor: "#000",
+            }}
+          />
+        </div>
       </div>
     );
   }
