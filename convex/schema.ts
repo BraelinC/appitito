@@ -143,6 +143,7 @@ export default defineSchema({
     onboardingClaimedAt: v.optional(v.number()),
     lastReelReceivedAt: v.optional(v.number()),
     onboardingReminderSentAt: v.optional(v.number()),
+    hasSeenInstacartTip: v.optional(v.boolean()),
     createdAt: v.number(),
     lastSeenAt: v.number(),
   })

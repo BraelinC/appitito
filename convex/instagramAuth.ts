@@ -545,6 +545,71 @@ export const clearInstagramUserTestingData = mutation({
 });
 
 /**
+ * Check if user should see the Instacart onboarding tip.
+ * Shows on their 2nd recipe if they haven't seen it yet.
+ */
+export const getInstacartTipStatus = query({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, { clerkUserId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
+
+    if (!instagramUser) {
+      return { showTip: false, reason: "no_linked_instagram" };
+    }
+
+    // Already seen the tip
+    if (instagramUser.hasSeenInstacartTip) {
+      return { showTip: false, reason: "already_seen" };
+    }
+
+    // Count their recipe deliveries
+    const deliveries = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) =>
+        q.eq("instagramId", instagramUser.instagramId)
+      )
+      .collect();
+
+    // Show tip on 2nd recipe (2+ deliveries)
+    if (deliveries.length >= 2) {
+      return { showTip: true, recipeCount: deliveries.length };
+    }
+
+    return { showTip: false, reason: "not_enough_recipes", recipeCount: deliveries.length };
+  },
+});
+
+/**
+ * Mark the Instacart tip as seen.
+ */
+export const markInstacartTipSeen = mutation({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, { clerkUserId }) => {
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_clerk_user", (q) => q.eq("clerkUserId", clerkUserId))
+      .first();
+
+    if (!instagramUser) {
+      return { success: false, reason: "no_linked_instagram" };
+    }
+
+    await ctx.db.patch(instagramUser._id, {
+      hasSeenInstacartTip: true,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
  * Acquire a processing lock for a reel to prevent duplicate processing from webhook retries.
  * Returns true if lock acquired, false if already processing.
  */

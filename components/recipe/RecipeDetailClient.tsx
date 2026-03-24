@@ -16,6 +16,7 @@ import { RecipeHeader } from "./RecipeHeader";
 import { RecipeHero } from "./RecipeHero";
 import { RecipeMetaStrip } from "./RecipeMetaStrip";
 import { RecipeTabs } from "./RecipeTabs";
+import { InstacartTip } from "./InstacartTip";
 import { useDmTokenSignIn } from "@/components/auth/useDmTokenSignIn";
 
 interface Props {
@@ -212,6 +213,9 @@ export function RecipeDetailClient({ id }: Props) {
           recipe={recipe}
         />
       )}
+
+      {/* Instacart onboarding tip - shows after 2nd recipe */}
+      <InstacartTip />
 
       {/* Instacart loading overlay */}
       {cartLoading && (
