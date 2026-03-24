@@ -64,9 +64,12 @@ export function formatTotalTime(
   if (total === 0) return null;
   
   if (total >= 60) {
-    const hours = Math.floor(total / 60);
-    const mins = Math.round(total % 60);
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+    // Convert to hours with decimal (e.g., 90 min = 1.5hr)
+    const hours = total / 60;
+    // Round to 1 decimal place, but show whole number if it's clean
+    const rounded = Math.round(hours * 10) / 10;
+    const display = rounded % 1 === 0 ? Math.floor(rounded) : rounded;
+    return `${display}hr`;
   }
 
   // Just return the number - the clock icon indicates it's minutes
