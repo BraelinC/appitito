@@ -51,49 +51,22 @@ const INSTACART_UNITS = [
 ] as const;
 
 /**
- * Parse ingredient strings using LLM into structured Instacart format
+ * Parse a batch of ingredients using LLM with retry logic
  */
-async function parseIngredientsWithLLM(ingredients: string[]): Promise<ParsedIngredient[]> {
-  console.log("[Instacart] Using model: qwen/qwen3.5-flash-02-23 v2");
-  const apiKey = process.env.OPEN_ROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPEN_ROUTER_API_KEY is not configured");
-  }
-
-  const prompt = `Parse these recipe ingredients into structured data for grocery shopping on Instacart.
-
-TASK: Convert each ingredient into what someone would actually BUY at the store.
+async function parseBatchWithLLM(ingredients: string[], apiKey: string, retryCount = 0): Promise<ParsedIngredient[]> {
+  const MAX_RETRIES = 3;
+  const prompt = `Parse these ingredients for grocery shopping. Convert to store-friendly amounts.
 
 RULES:
-1. name: The searchable product name (e.g., "all-purpose flour", "boneless skinless chicken breast")
-2. quantity & unit: Convert to STORE-FRIENDLY amounts:
-   - Small amounts of staples → minimum practical purchase
-     - "1 tsp salt" → 1 package (you buy a container, not 1 tsp)
-     - "2 tbsp olive oil" → 1 each (you buy a bottle)
-     - "1/4 cup flour" → 1 package (smallest bag available)
-   - Produce → round to what's sold
-     - "1/2 onion" → 1 each (onions sold whole)
-     - "3 cloves garlic" → 1 head (garlic sold as heads)
-     - "1 cup spinach" → 1 package or 1 bunch
-   - Proteins → realistic portions
-     - "8 oz chicken breast" → 1 pound (common package size)
-     - "1 lb ground beef" → 1 pound
-   - Dairy/eggs → standard sizes
-     - "2 eggs" → 12 each (dozen) OR 6 each (half dozen)
-     - "1 cup milk" → 1 quart or 1 each (smallest container)
-   - Countable items → actual count
-     - "2 tomatoes" → 2 each
-     - "1 lemon" → 1 each
-3. unit: Use these valid Instacart units: ${INSTACART_UNITS.join(", ")}
+- name: searchable product name
+- quantity/unit: what you'd actually buy (e.g., "1 tsp salt" → 1 package, "3 cloves garlic" → 1 head)
+- units: ${INSTACART_UNITS.slice(0, 15).join(", ")}
 
 INGREDIENTS:
 ${ingredients.map((ing, i) => `${i + 1}. ${ing}`).join("\n")}
 
-Return ONLY valid JSON array (no markdown):
-[
-  {"name": "product name", "quantity": 1, "unit": "each", "original": "original ingredient text"},
-  ...
-]`;
+Return ONLY JSON array:
+[{"name":"product","quantity":1,"unit":"each","original":"text"}]`;
 
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -103,16 +76,29 @@ Return ONLY valid JSON array (no markdown):
     },
     body: JSON.stringify({
       model: "openai/gpt-oss-safeguard-20b",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: "Return only valid JSON array. No explanation or thinking." },
+        { role: "user", content: prompt }
+      ],
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: 5000,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("[Instacart] LLM parsing failed:", errorText);
-    // Fallback on API error
+    console.error("[Instacart] LLM API error:", response.status, errorText);
+
+    // Retry on rate limit (429) with exponential backoff
+    if (response.status === 429 && retryCount < MAX_RETRIES) {
+      const delay = Math.pow(2, retryCount) * 1000; // 1s, 2s, 4s
+      console.log("[Instacart] Rate limited, retrying in", delay, "ms (attempt", retryCount + 1, "of", MAX_RETRIES, ")");
+      await new Promise(r => setTimeout(r, delay));
+      return parseBatchWithLLM(ingredients, apiKey, retryCount + 1);
+    }
+
+    // Final fallback after all retries exhausted - use basic parsing
+    console.log("[Instacart] All retries failed, using basic fallback for batch");
     return ingredients.map((ing) => ({
       name: extractProductName(ing),
       quantity: 1,
@@ -123,12 +109,21 @@ Return ONLY valid JSON array (no markdown):
 
   const result = await response.json();
   const content = result.choices?.[0]?.message?.content || "";
-  console.log("[Instacart] LLM finish_reason:", result.choices?.[0]?.finish_reason);
-  console.log("[Instacart] LLM content length:", content.length);
+  const finishReason = result.choices?.[0]?.finish_reason;
 
-  // If no content, use fallback immediately
+  console.log("[Instacart] Batch finish_reason:", finishReason, "content_length:", content.length);
+
+  // Retry on truncated/empty response
+  if ((!content || content.trim() === "" || finishReason === "length") && retryCount < MAX_RETRIES) {
+    const delay = Math.pow(2, retryCount) * 1000;
+    console.log("[Instacart] Empty/truncated response, retrying in", delay, "ms");
+    await new Promise(r => setTimeout(r, delay));
+    return parseBatchWithLLM(ingredients, apiKey, retryCount + 1);
+  }
+
   if (!content || content.trim() === "") {
-    console.log("[Instacart] LLM returned empty content, using fallback");
+    // Final fallback for empty content
+    console.log("[Instacart] Empty content after retries, using basic fallback");
     return ingredients.map((ing) => ({
       name: extractProductName(ing),
       quantity: 1,
@@ -137,33 +132,28 @@ Return ONLY valid JSON array (no markdown):
     }));
   }
 
-  try {
-    // Remove markdown code blocks if present
-    const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    console.log("[Instacart] Parsing JSON, first 200 chars:", jsonStr.substring(0, 200));
-    const parsed = JSON.parse(jsonStr) as ParsedIngredient[];
-    console.log("[Instacart] JSON parsed, array length:", parsed?.length);
+  // Extract JSON from response (strip thinking tags and markdown)
+  let jsonStr = content
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/```json\n?/g, "")
+    .replace(/```\n?/g, "")
+    .trim();
 
-    // If LLM returned empty array, use fallback
-    if (!parsed || parsed.length === 0) {
-      console.log("[Instacart] LLM returned empty array, using fallback");
-      return ingredients.map((ing) => ({
-        name: extractProductName(ing),
-        quantity: 1,
-        unit: "each",
-        original: ing,
-      }));
+  // If no JSON found after stripping, try to find JSON array in original content
+  if (!jsonStr.startsWith("[")) {
+    const jsonMatch = content.match(/\[[\s\S]*?\]/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
     }
+  }
 
-    // Validate and normalize units
-    return parsed.map((item) => ({
-      ...item,
-      unit: normalizeUnit(item.unit),
-      quantity: item.quantity > 0 ? item.quantity : 1,
-    }));
-  } catch (err) {
-    console.error("[Instacart] Failed to parse LLM response:", content, err);
-    // Fallback: return ingredients as-is with "each" unit
+  console.log("[Instacart] JSON preview:", jsonStr.substring(0, 150));
+
+  let parsed: ParsedIngredient[];
+  try {
+    parsed = JSON.parse(jsonStr) as ParsedIngredient[];
+  } catch (parseErr) {
+    console.error("[Instacart] JSON parse failed, using basic fallback:", parseErr);
     return ingredients.map((ing) => ({
       name: extractProductName(ing),
       quantity: 1,
@@ -171,6 +161,66 @@ Return ONLY valid JSON array (no markdown):
       original: ing,
     }));
   }
+
+  if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+    console.log("[Instacart] Empty array from LLM, using basic fallback");
+    return ingredients.map((ing) => ({
+      name: extractProductName(ing),
+      quantity: 1,
+      unit: "each",
+      original: ing,
+    }));
+  }
+
+  // Validate and normalize
+  return parsed.map((item) => ({
+    ...item,
+    name: item.name || "unknown",
+    unit: normalizeUnit(item.unit || "each"),
+    quantity: item.quantity > 0 ? item.quantity : 1,
+  }));
+}
+
+/**
+ * Parse ingredient strings using LLM into structured Instacart format
+ * Batches ingredients to avoid truncation with longer lists
+ */
+async function parseIngredientsWithLLM(ingredients: string[]): Promise<ParsedIngredient[]> {
+  console.log("[Instacart] v4 Parsing", ingredients.length, "ingredients with gpt-oss-safeguard-20b");
+
+  const apiKey = process.env.OPEN_ROUTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPEN_ROUTER_API_KEY is not configured");
+  }
+
+  // Batch ingredients - 7 per batch balances speed vs truncation risk
+  const BATCH_SIZE = 7;
+  const batches: string[][] = [];
+  for (let i = 0; i < ingredients.length; i += BATCH_SIZE) {
+    batches.push(ingredients.slice(i, i + BATCH_SIZE));
+  }
+
+  console.log("[Instacart] Processing", batches.length, "batches (5 concurrent)");
+
+  // Run 5 batches at a time in parallel for max speed
+  const CONCURRENCY = 5;
+  const allParsed: ParsedIngredient[] = [];
+
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const chunk = batches.slice(i, i + CONCURRENCY);
+    console.log("[Instacart] Running batches", i + 1, "-", i + chunk.length, "of", batches.length);
+
+    const promises = chunk.map((batch, j) => {
+      console.log("[Instacart] Starting batch", i + j + 1, "(" + batch.length + " items)");
+      return parseBatchWithLLM(batch, apiKey);
+    });
+
+    const results = await Promise.all(promises);
+    allParsed.push(...results.flat());
+  }
+
+  console.log("[Instacart] Total parsed:", allParsed.length);
+  return allParsed;
 }
 
 /**
@@ -341,7 +391,7 @@ export const createShoppingCart = action({
       throw new Error("No ingredients provided");
     }
 
-    console.log("[Instacart] v3 Processing", ingredients.length, "ingredients for:", recipeTitle);
+    console.log("[Instacart] v4 Processing", ingredients.length, "ingredients for:", recipeTitle);
 
     // Step 1: Parse ingredients with LLM
     const parsedIngredients = await parseIngredientsWithLLM(ingredients);

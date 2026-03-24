@@ -90,13 +90,14 @@ export function RecipeDetailClient({ id }: Props) {
       });
 
       if (result.shoppingUrl) {
-        window.open(result.shoppingUrl, "_blank");
+        // Redirect to Instacart
+        window.location.href = result.shoppingUrl;
       }
     } catch (error) {
       console.error("Failed to create shopping cart:", error);
-    } finally {
       setCartLoading(false);
     }
+    // Don't reset loading state on success - we're redirecting
   }
 
   // ── Loading state ───────────────────────────────────────────
@@ -211,6 +212,22 @@ export function RecipeDetailClient({ id }: Props) {
           onClose={() => setShowSaveSheet(false)}
           recipe={recipe}
         />
+      )}
+
+      {/* Instacart loading overlay */}
+      {cartLoading && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4"
+          style={{ backgroundColor: "rgba(44, 24, 16, 0.85)", backdropFilter: "blur(8px)" }}
+        >
+          <Loader2 size={48} className="animate-spin" style={{ color: "var(--cream)" }} />
+          <p className="text-lg font-semibold" style={{ color: "var(--cream)" }}>
+            Preparing your shopping cart...
+          </p>
+          <p className="text-sm" style={{ color: "var(--cream)", opacity: 0.7 }}>
+            Redirecting to Instacart
+          </p>
+        </div>
       )}
     </div>
   );
