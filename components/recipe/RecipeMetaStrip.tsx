@@ -22,7 +22,7 @@ export function RecipeMetaStrip({ totalTime, servings, cuisine }: RecipeMetaStri
 
   return (
     <div
-      className="flex items-center justify-center gap-6 mb-5 p-4 rounded-2xl border"
+      className="flex items-center justify-center gap-10 mb-5 p-4 rounded-2xl border"
       style={{
         backgroundColor: "var(--panel)",
         borderColor: "var(--line)",
