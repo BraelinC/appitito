@@ -310,8 +310,9 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
   }
 
   function handleClusterAction(action: () => void) {
-    // Ignore clicks within 300ms of expansion to prevent accidental taps
-    if (Date.now() - expandedAtRef.current < 300) {
+    // Ignore clicks within 500ms of expansion to prevent accidental taps
+    // (animation takes 320ms, plus buffer for finger lift)
+    if (Date.now() - expandedAtRef.current < 500) {
       return;
     }
     action();
