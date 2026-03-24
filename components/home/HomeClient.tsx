@@ -80,15 +80,15 @@ function AnonymousLanding() {
         </p>
 
         <div className="mt-6 flex flex-col items-center gap-3">
-          <Link
-            href="https://ig.me/m/appitito"
+          <a
+            href="instagram://user?username=appitito"
             className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
             style={{ backgroundColor: "var(--accent)", color: "#fff" }}
           >
-            Open Instagram DM
-          </Link>
+            Message @appitito
+          </a>
           <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            Or search @appitito on Instagram and send any cooking reel
+            Tap Message on my profile to send a cooking reel
           </p>
         </div>
       </div>
