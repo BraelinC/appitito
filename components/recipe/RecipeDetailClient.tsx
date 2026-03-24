@@ -80,6 +80,22 @@ export function RecipeDetailClient({ id }: Props) {
       return;
     }
 
+    // Open tab immediately so it feels instant
+    const newTab = window.open("about:blank", "_blank");
+    if (newTab) {
+      newTab.document.write(`
+        <html>
+          <head><title>Loading Instacart...</title></head>
+          <body style="display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui;background:#f5f5f5;">
+            <div style="text-align:center;">
+              <div style="font-size:48px;margin-bottom:16px;">🛒</div>
+              <p style="color:#666;">Preparing your shopping list...</p>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+
     setCartLoading(true);
     try {
       const result = await createShoppingCart({
@@ -89,11 +105,14 @@ export function RecipeDetailClient({ id }: Props) {
         servings: recipe.servings ? parseInt(recipe.servings, 10) : undefined,
       });
 
-      if (result.shoppingUrl) {
+      if (result.shoppingUrl && newTab) {
+        newTab.location.href = result.shoppingUrl;
+      } else if (result.shoppingUrl) {
         window.open(result.shoppingUrl, "_blank");
       }
     } catch (error) {
       console.error("Failed to create shopping cart:", error);
+      if (newTab) newTab.close();
     } finally {
       setCartLoading(false);
     }

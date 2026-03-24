@@ -31,12 +31,6 @@ export function CookbookSelectionSheet({
     if (!user || saving) return;
     setSaving(categoryId);
 
-    console.log("[CookbookSheet] Saving recipe with video fields:", {
-      muxPlaybackId: recipe.muxPlaybackId,
-      muxAssetId: recipe.muxAssetId,
-      reelUrl: recipe.reelUrl,
-    });
-
     try {
       await saveRecipe({
         userId: user.id,

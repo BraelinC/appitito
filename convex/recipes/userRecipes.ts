@@ -131,11 +131,6 @@ export const saveRecipeToUserCookbook = mutation({
     communityRecipeId: v.optional(v.id("recipes")),
   },
   handler: async (ctx, args) => {
-    console.log("[SaveRecipe] Video fields received:", {
-      muxPlaybackId: args.muxPlaybackId,
-      muxAssetId: args.muxAssetId,
-      reelUrl: args.reelUrl,
-    });
     const now = Date.now();
     return await ctx.db.insert("userRecipes", {
       ...args,
