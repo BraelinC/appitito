@@ -54,6 +54,7 @@ const INSTACART_UNITS = [
  * Parse ingredient strings using LLM into structured Instacart format
  */
 async function parseIngredientsWithLLM(ingredients: string[]): Promise<ParsedIngredient[]> {
+  console.log("[Instacart] Using model: qwen/qwen3.5-flash-02-23 v2");
   const apiKey = process.env.OPEN_ROUTER_API_KEY;
   if (!apiKey) {
     throw new Error("OPEN_ROUTER_API_KEY is not configured");
@@ -104,23 +105,55 @@ Return ONLY valid JSON array (no markdown):
       model: "openai/gpt-oss-safeguard-20b",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
-      max_tokens: 2000,
+      max_tokens: 4000,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
     console.error("[Instacart] LLM parsing failed:", errorText);
-    throw new Error("Failed to parse ingredients with LLM");
+    // Fallback on API error
+    return ingredients.map((ing) => ({
+      name: extractProductName(ing),
+      quantity: 1,
+      unit: "each",
+      original: ing,
+    }));
   }
 
   const result = await response.json();
-  const content = result.choices?.[0]?.message?.content || "[]";
+  const content = result.choices?.[0]?.message?.content || "";
+  console.log("[Instacart] LLM finish_reason:", result.choices?.[0]?.finish_reason);
+  console.log("[Instacart] LLM content length:", content.length);
+
+  // If no content, use fallback immediately
+  if (!content || content.trim() === "") {
+    console.log("[Instacart] LLM returned empty content, using fallback");
+    return ingredients.map((ing) => ({
+      name: extractProductName(ing),
+      quantity: 1,
+      unit: "each",
+      original: ing,
+    }));
+  }
 
   try {
     // Remove markdown code blocks if present
     const jsonStr = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    console.log("[Instacart] Parsing JSON, first 200 chars:", jsonStr.substring(0, 200));
     const parsed = JSON.parse(jsonStr) as ParsedIngredient[];
+    console.log("[Instacart] JSON parsed, array length:", parsed?.length);
+
+    // If LLM returned empty array, use fallback
+    if (!parsed || parsed.length === 0) {
+      console.log("[Instacart] LLM returned empty array, using fallback");
+      return ingredients.map((ing) => ({
+        name: extractProductName(ing),
+        quantity: 1,
+        unit: "each",
+        original: ing,
+      }));
+    }
 
     // Validate and normalize units
     return parsed.map((item) => ({
@@ -128,16 +161,30 @@ Return ONLY valid JSON array (no markdown):
       unit: normalizeUnit(item.unit),
       quantity: item.quantity > 0 ? item.quantity : 1,
     }));
-  } catch {
-    console.error("[Instacart] Failed to parse LLM response:", content);
+  } catch (err) {
+    console.error("[Instacart] Failed to parse LLM response:", content, err);
     // Fallback: return ingredients as-is with "each" unit
     return ingredients.map((ing) => ({
-      name: ing,
+      name: extractProductName(ing),
       quantity: 1,
       unit: "each",
       original: ing,
     }));
   }
+}
+
+/**
+ * Extract simple product name from ingredient string (fallback helper)
+ */
+function extractProductName(ingredient: string): string {
+  // Remove quantities, measurements, and prep instructions
+  return ingredient
+    .replace(/^\d+[\d\/\s]*/, "")  // remove leading numbers/fractions
+    .replace(/\([^)]*\)/g, "")     // remove parentheses
+    .replace(/(cup|tbsp|tsp|tablespoon|teaspoon|oz|lb|pound|ounce|g|kg|ml|liter)s?\b/gi, "")
+    .replace(/,.*$/, "")           // remove everything after comma
+    .replace(/\s+/g, " ")
+    .trim() || ingredient;
 }
 
 /**
@@ -294,7 +341,7 @@ export const createShoppingCart = action({
       throw new Error("No ingredients provided");
     }
 
-    console.log("[Instacart] Processing", ingredients.length, "ingredients for:", recipeTitle);
+    console.log("[Instacart] v3 Processing", ingredients.length, "ingredients for:", recipeTitle);
 
     // Step 1: Parse ingredients with LLM
     const parsedIngredients = await parseIngredientsWithLLM(ingredients);
