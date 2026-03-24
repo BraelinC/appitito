@@ -10,6 +10,22 @@ const COOKBOOK_CATEGORIES = [
   { id: "snacks",    name: "Snacks" },
 ];
 
+// Debug: list all extracted recipes
+export const listExtractedRecipes = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 10 }) => {
+    const recipes = await ctx.db
+      .query("extractedRecipes")
+      .order("desc")
+      .take(limit);
+    return recipes.map((r) => ({
+      _id: r._id,
+      title: r.title,
+      shortcode: r.instagramReelShortcode,
+    }));
+  },
+});
+
 export const getCookbookStats = query({
   args: { userId: v.string() },
   handler: async (ctx, { userId }) => {

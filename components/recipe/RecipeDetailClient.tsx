@@ -16,7 +16,7 @@ import { RecipeHeader } from "./RecipeHeader";
 import { RecipeHero } from "./RecipeHero";
 import { RecipeMetaStrip } from "./RecipeMetaStrip";
 import { RecipeTabs } from "./RecipeTabs";
-import { InstacartTip } from "./InstacartTip";
+import { InstacartTipBubble } from "./InstacartTip";
 import { useDmTokenSignIn } from "@/components/auth/useDmTokenSignIn";
 
 interface Props {
@@ -34,8 +34,25 @@ export function RecipeDetailClient({ id }: Props) {
   const { user } = useUser();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
   const [cartLoading, setCartLoading] = useState(false);
+  const [tipDismissed, setTipDismissed] = useState(false);
   useDmTokenSignIn();
   const createShoppingCart = useAction(api.instacart.createShoppingCart);
+
+  // Check if user should see Instacart tip (shows on 2nd recipe)
+  const tipStatus = useQuery(
+    api.instagramAuth.getInstacartTipStatus,
+    user?.id ? { clerkUserId: user.id } : "skip"
+  );
+  const markTipSeen = useMutation(api.instagramAuth.markInstacartTipSeen);
+
+  const showInstacartTip = tipStatus?.showTip === true && !tipDismissed;
+
+  async function handleDismissTip() {
+    setTipDismissed(true);
+    if (user?.id) {
+      await markTipSeen({ clerkUserId: user.id });
+    }
+  }
 
   // Fetch recipe data
   const rawRecipe = useQuery(api.recipes.userRecipes.getUserRecipeById, { recipeId: id });
@@ -181,6 +198,8 @@ export function RecipeDetailClient({ id }: Props) {
             onCart={handleCart}
             cartLoading={cartLoading}
             side="right"
+            showInstacartTip={showInstacartTip}
+            onDismissTip={handleDismissTip}
           >
             {recipe.description && (
               <p
@@ -214,9 +233,6 @@ export function RecipeDetailClient({ id }: Props) {
         />
       )}
 
-      {/* Instacart onboarding tip - shows after 2nd recipe */}
-      <InstacartTip />
-
       {/* Instacart loading overlay */}
       {cartLoading && (
         <div
@@ -245,10 +261,13 @@ interface RecipeActionClusterProps {
   cartLoading?: boolean;
   children?: React.ReactNode;
   side?: "left" | "right";
+  showInstacartTip?: boolean;
+  onDismissTip?: () => void;
 }
 
-function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart, cartLoading, children, side = "left" }: RecipeActionClusterProps) {
+function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart, cartLoading, children, side = "left", showInstacartTip = false, onDismissTip }: RecipeActionClusterProps) {
   const [expanded, setExpanded] = useState(false);
+  const [tipStage, setTipStage] = useState<"hold" | "cart">("hold");
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const holdTriggeredRef = useRef(false);
   const expandedAtRef = useRef<number>(0);
@@ -260,6 +279,17 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
     bookmark: { x: triangleSide / 2, y: -triangleHeight / 2 },
     cart: { x: 0, y: triangleHeight / 2 },
   };
+
+  // Transition tip stage when cluster expands
+  useEffect(() => {
+    if (expanded && showInstacartTip && tipStage === "hold") {
+      // Delay to let animation complete
+      const timer = setTimeout(() => {
+        setTipStage("cart");
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [expanded, showInstacartTip, tipStage]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent | TouchEvent) {
@@ -313,11 +343,15 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
     onSave();
   }
 
-  function handleClusterAction(action: () => void) {
+  function handleClusterAction(action: () => void, isCart?: boolean) {
     // Ignore clicks within 500ms of expansion to prevent accidental taps
     // (animation takes 320ms, plus buffer for finger lift)
     if (Date.now() - expandedAtRef.current < 500) {
       return;
+    }
+    // Dismiss tip when cart is clicked
+    if (isCart && showInstacartTip && onDismissTip) {
+      onDismissTip();
     }
     action();
     setExpanded(false);
@@ -327,34 +361,42 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
     <div className={`flex min-w-0 items-center gap-3 ${side === "right" ? "flex-row-reverse" : ""}`}>
       <div className={`relative shrink-0 transition-all duration-200 ${expanded ? "h-[148px] w-[148px]" : "h-[72px] w-[72px]"}`}>
         <div ref={rootRef} className="absolute inset-0">
-        <button
-          onMouseDown={startHold}
-          onMouseUp={() => {
-            clearHold();
-            handleBookmarkPress();
-          }}
-          onMouseLeave={clearHold}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            startHold();
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            clearHold();
-            handleBookmarkPress();
-          }}
-          onContextMenu={(event) => event.preventDefault()}
-          className={`absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${expanded ? "scale-75 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
-          style={{
-            width: 64,
-            height: 64,
-            color: isSaved ? "var(--accent)" : "var(--ink)",
-          }}
-          title="Save to cookbook"
-          aria-pressed={isSaved}
-        >
-          <BookmarkPlus size={34} strokeWidth={1.85} />
-        </button>
+        {/* Collapsed bookmark button with "Hold this down" tip */}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          <button
+            onMouseDown={startHold}
+            onMouseUp={() => {
+              clearHold();
+              handleBookmarkPress();
+            }}
+            onMouseLeave={clearHold}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              startHold();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              clearHold();
+              handleBookmarkPress();
+            }}
+            onContextMenu={(event) => event.preventDefault()}
+            className={`relative z-20 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${expanded ? "scale-75 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
+            style={{
+              width: 64,
+              height: 64,
+              color: isSaved ? "var(--accent)" : "var(--ink)",
+            }}
+            title="Save to cookbook"
+            aria-pressed={isSaved}
+          >
+            <BookmarkPlus size={34} strokeWidth={1.85} />
+          </button>
+
+          {/* "Hold this down" tip - positioned relative to bookmark button */}
+          {showInstacartTip && tipStage === "hold" && !expanded && (
+            <InstacartTipBubble stage="hold" onDismiss={onDismissTip || (() => {})} />
+          )}
+        </div>
 
         <div className={`absolute inset-0 ${expanded ? "pointer-events-auto" : "pointer-events-none"}`}>
         <ActionBubble
@@ -389,11 +431,12 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
           <BookmarkPlus size={20} style={{ color: isSaved ? "#fff" : "var(--ink)" }} />
         </ActionBubble>
 
+        {/* Cart bubble */}
         <ActionBubble
           className="left-1/2 top-1/2"
           active={false}
           label="Open grocery cart"
-          onClick={() => handleClusterAction(onCart)}
+          onClick={() => handleClusterAction(onCart, true)}
           expanded={expanded}
           transformWhenClosed="translate(-50%, -50%) scale(0.32)"
           transformWhenOpen={`translate(calc(-50% + ${trianglePositions.cart.x}px), calc(-50% + ${trianglePositions.cart.y}px)) scale(1)`}
@@ -406,6 +449,36 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
           )}
         </ActionBubble>
         </div>
+
+        {/* "Shop with Instacart" tip - positioned at cart button location */}
+        {showInstacartTip && tipStage === "cart" && expanded && (
+          <div
+            className="absolute left-1/2 top-1/2 z-50 pointer-events-auto"
+            style={{
+              transform: `translate(calc(-50% + ${trianglePositions.cart.x}px), calc(-50% + ${trianglePositions.cart.y - 48}px))`,
+            }}
+          >
+            <div
+              className="rounded-2xl px-4 py-3 shadow-lg whitespace-nowrap"
+              style={{
+                backgroundColor: "var(--accent)",
+                color: "white",
+              }}
+            >
+              <p className="font-semibold text-sm">Shop with Instacart</p>
+            </div>
+            {/* Arrow pointing down to cart */}
+            <div
+              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
+              style={{
+                bottom: -8,
+                borderLeft: "8px solid transparent",
+                borderRight: "8px solid transparent",
+                borderTop: "8px solid var(--accent)",
+              }}
+            />
+          </div>
+        )}
         </div>
       </div>
 

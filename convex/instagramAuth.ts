@@ -455,7 +455,7 @@ export const recordRecipeDelivery = internalMutation({
 
 /**
  * Get onboarding status for a Clerk user
- * Returns whether to show the onboarding overlay (user has 0 saved recipes)
+ * Returns whether to show the onboarding overlay (user has 0 delivered recipes)
  */
 export const getOnboardingStatus = query({
   args: {
@@ -476,17 +476,19 @@ export const getOnboardingStatus = query({
       };
     }
 
-    // Check if user has any saved recipes in their cookbook
-    const userRecipes = await ctx.db
-      .query("userRecipes")
-      .withIndex("by_user", (q) => q.eq("userId", clerkUserId))
+    // Check if user has any delivered recipes (not just saved)
+    const deliveredRecipe = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) =>
+        q.eq("instagramId", instagramUser.instagramId)
+      )
       .first();
 
-    const hasRecipes = userRecipes !== null;
+    const hasDeliveredRecipes = deliveredRecipe !== null;
 
     return {
-      showOnboarding: !hasRecipes,
-      reason: hasRecipes ? "has_recipes" : "no_recipes",
+      showOnboarding: !hasDeliveredRecipes,
+      reason: hasDeliveredRecipes ? "has_delivered_recipes" : "no_delivered_recipes",
       instagramUsername: instagramUser.instagramUsername,
     };
   },
@@ -665,5 +667,116 @@ export const cleanupOldProcessingLocks = internalMutation({
     }
 
     return { deleted: oldLocks.length };
+  },
+});
+
+/**
+ * Clear user recipes by Clerk user ID (for testing)
+ */
+export const clearUserRecipes = mutation({
+  args: {
+    clerkUserId: v.string(),
+  },
+  handler: async (ctx, { clerkUserId }) => {
+    const userRecipes = await ctx.db
+      .query("userRecipes")
+      .withIndex("by_user", (q) => q.eq("userId", clerkUserId))
+      .collect();
+
+    for (const recipe of userRecipes) {
+      await ctx.db.delete(recipe._id);
+    }
+
+    return { success: true, deleted: userRecipes.length };
+  },
+});
+
+/**
+ * List all Instagram users (for debugging)
+ */
+export const listAllInstagramUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("instagramUsers").collect();
+    return users.map((u) => ({
+      _id: u._id,
+      instagramId: u.instagramId,
+      instagramUsername: u.instagramUsername,
+      clerkUserId: u.clerkUserId,
+      createdAt: u.createdAt,
+    }));
+  },
+});
+
+/**
+ * Reset a user for testing - deletes all their data including saved recipes
+ */
+export const resetInstagramUser = mutation({
+  args: {
+    instagramUsername: v.string(),
+  },
+  handler: async (ctx, { instagramUsername }) => {
+    const deleted: Record<string, number> = {};
+
+    // Find the Instagram user
+    const instagramUser = await ctx.db
+      .query("instagramUsers")
+      .filter((q) => q.eq(q.field("instagramUsername"), instagramUsername))
+      .first();
+
+    if (!instagramUser) {
+      return { success: false, reason: "user_not_found", deleted };
+    }
+
+    const instagramId = instagramUser.instagramId;
+    const clerkUserId = instagramUser.clerkUserId;
+
+    // Delete instagramUser
+    await ctx.db.delete(instagramUser._id);
+    deleted.instagramUsers = 1;
+
+    // Delete recipeAuthTokens
+    const authTokens = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_instagram", (q) => q.eq("instagramId", instagramId))
+      .collect();
+    for (const token of authTokens) {
+      await ctx.db.delete(token._id);
+    }
+    deleted.recipeAuthTokens = authTokens.length;
+
+    // Delete recipeDeliveries
+    const deliveries = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) => q.eq("instagramId", instagramId))
+      .collect();
+    for (const delivery of deliveries) {
+      await ctx.db.delete(delivery._id);
+    }
+    deleted.recipeDeliveries = deliveries.length;
+
+    // Delete dmWebhookEvents
+    const webhookEvents = await ctx.db
+      .query("dmWebhookEvents")
+      .withIndex("by_sender", (q) => q.eq("senderId", instagramId))
+      .collect();
+    for (const event of webhookEvents) {
+      await ctx.db.delete(event._id);
+    }
+    deleted.dmWebhookEvents = webhookEvents.length;
+
+    // Delete userRecipes if linked to Clerk
+    if (clerkUserId) {
+      const userRecipes = await ctx.db
+        .query("userRecipes")
+        .withIndex("by_user", (q) => q.eq("userId", clerkUserId))
+        .collect();
+      for (const recipe of userRecipes) {
+        await ctx.db.delete(recipe._id);
+      }
+      deleted.userRecipes = userRecipes.length;
+    }
+
+    return { success: true, instagramId, clerkUserId, deleted };
   },
 });
