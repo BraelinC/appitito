@@ -68,6 +68,7 @@ export function formatTotalTime(
     const mins = Math.round(total % 60);
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   }
-  
-  return `${Math.round(total)} min`;
+
+  // Just return the number - the clock icon indicates it's minutes
+  return `${Math.round(total)}`;
 }

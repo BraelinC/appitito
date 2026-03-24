@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Users, Globe, ChefHat } from "lucide-react";
+import { Clock, Users, Globe, Leaf, Utensils } from "lucide-react";
 import { ReactNode } from "react";
 
 interface RecipeMetaStripProps {
@@ -15,8 +15,16 @@ interface RecipeMetaStripProps {
  */
 export function RecipeMetaStrip({ totalTime, servings, cuisine, diet }: RecipeMetaStripProps) {
   const hasContent = totalTime || servings || cuisine || diet;
-  
+
   if (!hasContent) return null;
+
+  // Extract just the number from servings like "18-20 mini tacos" → "18-20"
+  const simplifiedServings = servings ? simplifyServings(servings) : null;
+
+  // Choose diet icon based on content
+  const dietIcon = diet && isVegetarian(diet)
+    ? <Leaf size={13} />
+    : <Utensils size={13} />;
 
   return (
     <div
@@ -29,17 +37,41 @@ export function RecipeMetaStrip({ totalTime, servings, cuisine, diet }: RecipeMe
       {totalTime && (
         <MetaChip icon={<Clock size={13} />} label={totalTime} align="left" />
       )}
-      {servings && (
-        <MetaChip icon={<Users size={13} />} label={`Serves ${servings}`} align="center" />
+      {simplifiedServings && (
+        <MetaChip icon={<Users size={13} />} label={simplifiedServings} align="center" />
       )}
       {cuisine && (
         <MetaChip icon={<Globe size={13} />} label={cuisine} align="right" />
       )}
       {diet && (
-        <MetaChip icon={<ChefHat size={13} />} label={diet} align="right" />
+        <MetaChip icon={dietIcon} label={diet} align="right" />
       )}
     </div>
   );
+}
+
+/**
+ * Simplify servings to just show the number portion.
+ * "18-20 mini tacos" → "18-20"
+ * "4 servings" → "4"
+ * "6" → "6"
+ */
+function simplifyServings(servings: string): string {
+  // Try to extract number or range at the start
+  const match = servings.match(/^(\d+(?:\s*-\s*\d+)?)/);
+  if (match) {
+    return match[1].replace(/\s+/g, "");
+  }
+  // If no number found, return as-is but truncated
+  return servings.length > 8 ? servings.slice(0, 8) : servings;
+}
+
+/**
+ * Check if diet is vegetarian/vegan for icon selection.
+ */
+function isVegetarian(diet: string): boolean {
+  const lower = diet.toLowerCase();
+  return lower.includes("vegetarian") || lower.includes("vegan") || lower.includes("plant");
 }
 
 // ── Helper ────────────────────────────────────────────────────
