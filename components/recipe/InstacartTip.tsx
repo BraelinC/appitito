@@ -44,16 +44,8 @@ export function InstacartTipBubble({ stage, onDismiss }: InstacartTipProps) {
           color: "white",
         }}
       >
-        {/* Close button */}
-        <button
-          onClick={onDismiss}
-          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white/30 flex items-center justify-center hover:bg-white/40 transition-colors"
-        >
-          <X size={12} />
-        </button>
-
         {/* Content */}
-        <p className="font-semibold text-sm pr-4">
+        <p className="font-semibold text-sm">
           {stage === "hold" ? "Hold this down" : "Shop with Instacart"}
         </p>
         {stage === "cart" && (
