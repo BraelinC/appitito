@@ -13,7 +13,7 @@ import { api } from "@/convex/_generated/api";
 interface CookbookSelectionSheetProps {
   open: boolean;
   onClose: () => void;
-  recipe: Pick<UserRecipe, "_id" | "title" | "description" | "imageUrl" | "ingredients" | "instructions" | "servings" | "prep_time" | "cook_time" | "cuisine" | "recipeType" | "extractedRecipeId" | "communityRecipeId">;
+  recipe: Pick<UserRecipe, "_id" | "title" | "description" | "imageUrl" | "ingredients" | "instructions" | "servings" | "prep_time" | "cook_time" | "cuisine" | "recipeType" | "extractedRecipeId" | "communityRecipeId" | "muxPlaybackId" | "muxAssetId" | "reelUrl" | "instagramReelShortcode">;
 }
 
 export function CookbookSelectionSheet({
@@ -45,6 +45,11 @@ export function CookbookSelectionSheet({
         prep_time: recipe.prep_time,
         cook_time: recipe.cook_time,
         cuisine: recipe.cuisine,
+        // Video fields
+        muxPlaybackId: recipe.muxPlaybackId,
+        muxAssetId: recipe.muxAssetId,
+        reelUrl: recipe.reelUrl,
+        instagramReelShortcode: recipe.instagramReelShortcode,
         extractedRecipeId: recipe.extractedRecipeId,
         communityRecipeId: recipe.communityRecipeId,
       });
