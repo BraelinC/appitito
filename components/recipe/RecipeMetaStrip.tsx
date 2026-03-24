@@ -22,20 +22,20 @@ export function RecipeMetaStrip({ totalTime, servings, cuisine }: RecipeMetaStri
 
   return (
     <div
-      className="flex items-center justify-between mb-5 p-4 rounded-2xl border"
+      className="flex items-center justify-center gap-6 mb-5 p-4 rounded-2xl border"
       style={{
         backgroundColor: "var(--panel)",
         borderColor: "var(--line)",
       }}
     >
       {totalTime && (
-        <MetaChip icon={<Clock size={13} />} label={totalTime} align="left" />
+        <MetaChip icon={<Clock size={13} />} label={totalTime} />
       )}
       {simplifiedServings && (
-        <MetaChip icon={<Users size={13} />} label={simplifiedServings} align="center" />
+        <MetaChip icon={<Users size={13} />} label={simplifiedServings} />
       )}
       {cuisine && (
-        <MetaChip icon={<Globe size={13} />} label={cuisine} align="right" />
+        <MetaChip icon={<Globe size={13} />} label={cuisine} />
       )}
     </div>
   );
@@ -63,19 +63,12 @@ function simplifyServings(servings: string): string {
 function MetaChip({
   icon,
   label,
-  align = "left",
 }: {
   icon: ReactNode;
   label: string;
-  align?: "left" | "center" | "right";
 }) {
-  const justifyClass =
-    align === "center" ? "justify-center" :
-    align === "right" ? "justify-end" :
-    "justify-start";
-
   return (
-    <div className={`flex items-center gap-1.5 ${justifyClass}`}>
+    <div className="flex items-center gap-1.5">
       {icon && <span style={{ color: "var(--accent)" }}>{icon}</span>}
       <span className="text-xs font-medium" style={{ color: "var(--ink-secondary)" }}>
         {label}
