@@ -330,8 +330,12 @@ function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart,
             handleBookmarkPress();
           }}
           onMouseLeave={clearHold}
-          onTouchStart={startHold}
-          onTouchEnd={() => {
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startHold();
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
             clearHold();
             handleBookmarkPress();
           }}
