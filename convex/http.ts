@@ -209,6 +209,22 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
         if (reel) {
           const reelContext = extractReelContext(reel);
 
+          console.log("[Zernio] Reel detected:", reelContext.caption || reelContext.shortcode);
+
+          // Deduplication: prevent duplicate processing from webhook retries
+          const lock = await ctx.runMutation(internal.instagramAuth.acquireReelProcessingLock, {
+            shortcode: reelContext.shortcode,
+            conversationId,
+          }) as { acquired: boolean; reason?: string };
+
+          if (!lock.acquired) {
+            console.log("[Zernio] Skipping duplicate reel processing:", reelContext.shortcode, lock.reason);
+            return new Response(JSON.stringify({ success: true, action: "duplicate_skipped" }), {
+              status: 200,
+              headers: { "Content-Type": "application/json" }
+            });
+          }
+
           if (senderId) {
             await ctx.runMutation(internal.instagramAuth.markReelReceived, {
               instagramId: senderId,
@@ -216,11 +232,9 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
               conversationId,
             });
           }
-          
-          console.log("[Zernio] Reel detected:", reelContext.caption || reelContext.shortcode);
 
           // Send immediate acknowledgment
-          await sendZernioReply(accountId, conversationId, 
+          await sendZernioReply(accountId, conversationId,
             `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
           );
 

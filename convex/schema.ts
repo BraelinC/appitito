@@ -154,4 +154,13 @@ export default defineSchema({
     recipeId: v.string(),
     deliveredAt: v.number(),
   }).index("by_instagram_id_and_delivered_at", ["instagramId", "deliveredAt"]),
+
+  // Deduplication: prevent duplicate reel processing from webhook retries
+  reelProcessingLocks: defineTable({
+    shortcode: v.string(),
+    conversationId: v.string(),
+    startedAt: v.number(),
+  })
+    .index("by_shortcode_conversation", ["shortcode", "conversationId"])
+    .index("by_started_at", ["startedAt"]),
 });

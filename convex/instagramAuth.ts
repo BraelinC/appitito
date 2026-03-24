@@ -543,3 +543,62 @@ export const clearInstagramUserTestingData = mutation({
     };
   },
 });
+
+/**
+ * Acquire a processing lock for a reel to prevent duplicate processing from webhook retries.
+ * Returns true if lock acquired, false if already processing.
+ */
+export const acquireReelProcessingLock = internalMutation({
+  args: {
+    shortcode: v.string(),
+    conversationId: v.string(),
+  },
+  handler: async (ctx, { shortcode, conversationId }) => {
+    // Check if we're already processing this reel (within last 5 minutes)
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+
+    const existingLock = await ctx.db
+      .query("reelProcessingLocks")
+      .withIndex("by_shortcode_conversation", (q) =>
+        q.eq("shortcode", shortcode).eq("conversationId", conversationId)
+      )
+      .filter((q) => q.gte(q.field("startedAt"), fiveMinutesAgo))
+      .first();
+
+    if (existingLock) {
+      // Already processing this reel, skip
+      return { acquired: false, reason: "already_processing" };
+    }
+
+    // Acquire the lock
+    await ctx.db.insert("reelProcessingLocks", {
+      shortcode,
+      conversationId,
+      startedAt: Date.now(),
+    });
+
+    return { acquired: true };
+  },
+});
+
+/**
+ * Clean up old processing locks (older than 1 hour)
+ */
+export const cleanupOldProcessingLocks = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+    const oldLocks = await ctx.db
+      .query("reelProcessingLocks")
+      .withIndex("by_started_at")
+      .filter((q) => q.lt(q.field("startedAt"), oneHourAgo))
+      .collect();
+
+    for (const lock of oldLocks) {
+      await ctx.db.delete(lock._id);
+    }
+
+    return { deleted: oldLocks.length };
+  },
+});
