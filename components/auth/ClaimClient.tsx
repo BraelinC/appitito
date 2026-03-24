@@ -5,14 +5,20 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { SignIn, useUser } from "@clerk/nextjs";
+import { setPendingClaimToken } from "@/components/auth/pendingClaim";
 
 export function ClaimClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useUser();
   const authToken = searchParams.get("auth");
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [status] = useState<"loading" | "success" | "error">("loading");
+
+  useEffect(() => {
+    if (authToken) {
+      setPendingClaimToken(authToken);
+    }
+  }, [authToken]);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -31,54 +37,6 @@ export function ClaimClient() {
     if (!isSignedIn || !authToken) {
       return;
     }
-
-    let cancelled = false;
-
-    async function claimToken() {
-      setStatus("loading");
-      setErrorMessage(null);
-
-      try {
-        const response = await fetch("/api/dm-auth/claim", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: authToken }),
-        });
-        const result = await response.json() as { success?: boolean; error?: string };
-
-        if (!cancelled) {
-          if (response.ok && result.success) {
-            setStatus("success");
-            if (typeof window !== "undefined") {
-              window.location.assign("/?claimed=1");
-              return;
-            }
-            router.replace("/?claimed=1");
-          } else {
-            if (typeof window !== "undefined") {
-              window.location.assign("/");
-              return;
-            }
-            router.replace("/");
-          }
-        }
-      } catch (error) {
-        if (!cancelled) {
-          if (typeof window !== "undefined") {
-            window.location.assign("/");
-            return;
-          }
-          router.replace("/");
-        }
-        console.error("Failed to claim DM auth token:", error);
-      }
-    }
-
-    void claimToken();
-
-    return () => {
-      cancelled = true;
-    };
   }, [authToken, isLoaded, isSignedIn, router]);
 
   const currentUrl = authToken ? `/claim?auth=${encodeURIComponent(authToken)}` : "/claim";
@@ -129,7 +87,7 @@ export function ClaimClient() {
                 This link expired.
               </h2>
               <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--ink-secondary)" }}>
-                {errorMessage ?? "DM me RECIPE and I&apos;ll send you a fresh link."}
+                DM me RECIPE and I&apos;ll send you a fresh link.
               </p>
             </>
           )}

@@ -2,6 +2,7 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import { internal } from "../_generated/api";
 import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
+import { getAppUrl } from "../lib/appUrl";
 
 // ── Extract recipe from reel + reply to sender ─────────────────
 export const extractAndReply = internalAction({
@@ -117,7 +118,7 @@ Based on the Instagram reel URL, extract or infer a plausible food recipe. Retur
       // 5. Send DM reply
       const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
       if (accessToken) {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://appitito.com";
+        const appUrl = getAppUrl();
         const replyText = `🍽️ Got your reel! Here's the extracted recipe: ${appUrl}/recipe/${extractedId}`;
 
         // Page token (EAA) → use Facebook Graph API page endpoint

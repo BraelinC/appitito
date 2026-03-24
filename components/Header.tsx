@@ -3,10 +3,14 @@
 import { SignInButton, useUser, useClerk } from "@clerk/nextjs";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { LogOut, User } from "lucide-react";
+import { useState } from "react";
+
+import { BillingModal } from "@/components/billing/BillingModal";
 
 export function Header() {
   const { isLoaded, user } = useUser();
   const { signOut } = useClerk();
+  const [billingOpen, setBillingOpen] = useState(false);
 
   const initials = user?.firstName?.[0] ?? user?.emailAddresses?.[0]?.emailAddress?.[0] ?? "?";
   const displayName = user?.firstName ?? user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ?? "Account";
@@ -14,6 +18,7 @@ export function Header() {
 
   return (
     <header className="mx-4 mt-4 sm:mx-6 sm:mt-6">
+      <BillingModal open={billingOpen} onOpenChange={setBillingOpen} />
       <div
         className="flex items-center justify-between rounded-3xl border px-5 py-4 shadow-[0_14px_50px_var(--shadow-warm)] backdrop-blur sm:px-7"
         style={{
@@ -91,6 +96,14 @@ export function Header() {
                     {user.emailAddresses?.[0]?.emailAddress}
                   </p>
                 </div>
+
+                <DropdownMenu.Item
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer outline-none transition-colors hover:bg-[var(--cream-warm)] rounded-xl mx-1.5 mt-1.5"
+                  style={{ color: "var(--ink-secondary)" }}
+                  onSelect={() => setBillingOpen(true)}
+                >
+                  Upgrade
+                </DropdownMenu.Item>
 
                 <DropdownMenu.Item
                   className="flex items-center gap-3 px-4 py-2.5 text-sm cursor-pointer outline-none transition-colors hover:bg-[var(--cream-warm)] rounded-xl mx-1.5 mt-1.5"

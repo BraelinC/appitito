@@ -2,13 +2,13 @@ import { httpAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 
 const APP_ID = "1248590609951125";
-const REDIRECT_URI = "https://zealous-sockeye-430.convex.site/instagram/callback";
 
 // ── OAuth Callback (GET /instagram/callback) ──────────────────
 export const callback = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
+  const redirectUri = `${url.origin}/instagram/callback`;
 
   if (error) {
     console.error("Instagram OAuth error:", error, url.searchParams.get("error_description"));
@@ -37,7 +37,7 @@ export const callback = httpAction(async (ctx, request) => {
         client_id: APP_ID,
         client_secret: appSecret,
         grant_type: "authorization_code",
-        redirect_uri: REDIRECT_URI,
+        redirect_uri: redirectUri,
         code,
       }),
     });

@@ -1,8 +1,10 @@
 "use client";
 
+import { Suspense } from "react";
 import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { ConvexReactClient } from "convex/react";
+import { PendingClaimSync } from "@/components/auth/PendingClaimSync";
 
 // Validate required env vars at module load
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -26,6 +28,9 @@ const convex = new ConvexReactClient(convexUrl);
 function InnerProviders({ children }: { children: React.ReactNode }) {
   return (
     <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+      <Suspense fallback={null}>
+        <PendingClaimSync />
+      </Suspense>
       {children}
     </ConvexProviderWithClerk>
   );

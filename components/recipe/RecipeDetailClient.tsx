@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, BookmarkPlus, Heart, ShoppingCart, Loader2 } from "lucide-react";
 
 import { UserRecipe, COOKBOOK_CATEGORIES, isUserRecipe, getRecipeTitle, getRecipeIngredients, getRecipeInstructions } from "@/lib/types";
 import { formatTotalTime } from "@/lib/time";
@@ -32,7 +32,9 @@ export function RecipeDetailClient({ id }: Props) {
   const { openSignIn } = useClerk();
   const { user } = useUser();
   const [showSaveSheet, setShowSaveSheet] = useState(false);
-  const { isAutoSigningIn } = useDmTokenSignIn();
+  const [cartLoading, setCartLoading] = useState(false);
+  useDmTokenSignIn();
+  const createShoppingCart = useAction(api.instacart.createShoppingCart);
 
   // Fetch recipe data
   const rawRecipe = useQuery(api.recipes.userRecipes.getUserRecipeById, { recipeId: id });
@@ -67,6 +69,34 @@ export function RecipeDetailClient({ id }: Props) {
     }
 
     setShowSaveSheet(true);
+  }
+
+  async function handleCart() {
+    if (!recipe || cartLoading) return;
+
+    const ingredients = getRecipeIngredients(recipe);
+    if (ingredients.length === 0) {
+      console.error("No ingredients to add to cart");
+      return;
+    }
+
+    setCartLoading(true);
+    try {
+      const result = await createShoppingCart({
+        recipeTitle: getRecipeTitle(recipe),
+        ingredients,
+        imageUrl: recipe.imageUrl,
+        servings: recipe.servings ? parseInt(recipe.servings, 10) : undefined,
+      });
+
+      if (result.shoppingUrl) {
+        window.open(result.shoppingUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Failed to create shopping cart:", error);
+    } finally {
+      setCartLoading(false);
+    }
   }
 
   // ── Loading state ───────────────────────────────────────────
@@ -127,6 +157,7 @@ export function RecipeDetailClient({ id }: Props) {
         onBack={() => router.push("/")}
         onFavorite={handleFavorite}
         onSave={handleSave}
+        showActions={false}
       />
 
       <RecipeHero
@@ -139,31 +170,25 @@ export function RecipeDetailClient({ id }: Props) {
 
       {/* Content */}
       <div className={`flex-1 px-5 relative z-10 ${recipe.muxPlaybackId || recipe.reelUrl ? "" : "-mt-4"}`}>
-        {!user && !isAutoSigningIn && (
-          <div
-            className="mb-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed"
-            style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)", color: "var(--ink-secondary)" }}
+        <div className="mb-4 flex items-center gap-3">
+          <RecipeActionCluster
+            isFavorited={recipe.isFavorited}
+            isSaved={!!recipe.cookbookCategory}
+            onFavorite={handleFavorite}
+            onSave={handleSave}
+            onCart={handleCart}
+            cartLoading={cartLoading}
+            side="right"
           >
-            You&apos;re viewing this recipe as a guest. Sign in when you want to save it to your cookbook.
-          </div>
-        )}
-
-        {/* Title & description */}
-        <div className="mb-4">
-          <h1
-            className="font-display text-2xl font-bold leading-snug"
-            style={{ color: "var(--ink)" }}
-          >
-            {getRecipeTitle(recipe)}
-          </h1>
-          {recipe.description && (
-            <p
-              className="text-sm mt-2 leading-relaxed"
-              style={{ color: "var(--ink-secondary)" }}
-            >
-              {recipe.description}
-            </p>
-          )}
+            {recipe.description && (
+              <p
+                className="text-sm leading-relaxed"
+                style={{ color: "var(--ink-secondary)" }}
+              >
+                {recipe.description}
+              </p>
+            )}
+          </RecipeActionCluster>
         </div>
 
         <RecipeMetaStrip
@@ -188,5 +213,217 @@ export function RecipeDetailClient({ id }: Props) {
         />
       )}
     </div>
+  );
+}
+
+interface RecipeActionClusterProps {
+  isFavorited: boolean;
+  isSaved: boolean;
+  onFavorite: () => void;
+  onSave: () => void;
+  onCart: () => void;
+  cartLoading?: boolean;
+  children?: React.ReactNode;
+  side?: "left" | "right";
+}
+
+function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart, cartLoading, children, side = "left" }: RecipeActionClusterProps) {
+  const [expanded, setExpanded] = useState(false);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdTriggeredRef = useRef(false);
+  const expandedAtRef = useRef<number>(0);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triangleSide = 68;
+  const triangleHeight = triangleSide * 0.866;
+  const trianglePositions = {
+    heart: { x: -triangleSide / 2, y: -triangleHeight / 2 },
+    bookmark: { x: triangleSide / 2, y: -triangleHeight / 2 },
+    cart: { x: 0, y: triangleHeight / 2 },
+  };
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent | TouchEvent) {
+      if (!expanded) {
+        return;
+      }
+
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setExpanded(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+      }
+    };
+  }, [expanded]);
+
+  function startHold() {
+    holdTriggeredRef.current = false;
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+    }
+
+    holdTimerRef.current = setTimeout(() => {
+      holdTriggeredRef.current = true;
+      expandedAtRef.current = Date.now();
+      setExpanded(true);
+    }, 260);
+  }
+
+  function clearHold() {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }
+
+  function handleBookmarkPress() {
+    if (holdTriggeredRef.current) {
+      holdTriggeredRef.current = false;
+      return;
+    }
+
+    onSave();
+  }
+
+  function handleClusterAction(action: () => void) {
+    // Ignore clicks within 300ms of expansion to prevent accidental taps
+    if (Date.now() - expandedAtRef.current < 300) {
+      return;
+    }
+    action();
+    setExpanded(false);
+  }
+
+  return (
+    <div className={`flex min-w-0 items-center gap-3 ${side === "right" ? "flex-row-reverse" : ""}`}>
+      <div className={`relative shrink-0 transition-all duration-200 ${expanded ? "h-[148px] w-[148px]" : "h-[72px] w-[72px]"}`}>
+        <div ref={rootRef} className="absolute inset-0">
+        <button
+          onMouseDown={startHold}
+          onMouseUp={() => {
+            clearHold();
+            handleBookmarkPress();
+          }}
+          onMouseLeave={clearHold}
+          onTouchStart={startHold}
+          onTouchEnd={() => {
+            clearHold();
+            handleBookmarkPress();
+          }}
+          onContextMenu={(event) => event.preventDefault()}
+          className={`absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${expanded ? "scale-75 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
+          style={{
+            width: 64,
+            height: 64,
+            color: isSaved ? "var(--accent)" : "var(--ink)",
+          }}
+          title="Save to cookbook"
+          aria-pressed={isSaved}
+        >
+          <BookmarkPlus size={34} strokeWidth={1.85} />
+        </button>
+
+        <div className={`absolute inset-0 ${expanded ? "pointer-events-auto" : "pointer-events-none"}`}>
+        <ActionBubble
+          className="left-1/2 top-1/2"
+          active={isFavorited}
+          label="Add to favourites"
+          onClick={() => handleClusterAction(onFavorite)}
+          expanded={expanded}
+          transformWhenClosed="translate(-50%, -50%) scale(0.35)"
+          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.heart.x}px), calc(-50% + ${trianglePositions.heart.y}px)) scale(1)`}
+          delayMs={0}
+        >
+          <Heart
+            size={20}
+            style={{
+              color: isFavorited ? "#fff" : "var(--ink)",
+              fill: isFavorited ? "#fff" : "transparent",
+            }}
+          />
+        </ActionBubble>
+
+        <ActionBubble
+          className="left-1/2 top-1/2"
+          active={isSaved}
+          label="Save to cookbook"
+          onClick={() => handleClusterAction(onSave)}
+          expanded={expanded}
+          transformWhenClosed="translate(-50%, -50%) scale(0.35)"
+          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.bookmark.x}px), calc(-50% + ${trianglePositions.bookmark.y}px)) scale(1)`}
+          delayMs={35}
+        >
+          <BookmarkPlus size={20} style={{ color: isSaved ? "#fff" : "var(--ink)" }} />
+        </ActionBubble>
+
+        <ActionBubble
+          className="left-1/2 top-1/2"
+          active={false}
+          label="Open grocery cart"
+          onClick={() => handleClusterAction(onCart)}
+          expanded={expanded}
+          transformWhenClosed="translate(-50%, -50%) scale(0.32)"
+          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.cart.x}px), calc(-50% + ${trianglePositions.cart.y}px)) scale(1)`}
+          delayMs={70}
+        >
+          {cartLoading ? (
+            <Loader2 size={20} className="animate-spin" style={{ color: "var(--ink)" }} />
+          ) : (
+            <ShoppingCart size={20} style={{ color: "var(--ink)" }} />
+          )}
+        </ActionBubble>
+        </div>
+        </div>
+      </div>
+
+      <div className="w-px self-stretch" style={{ backgroundColor: "var(--line)" }} />
+
+      <div className="min-w-0 flex-1 py-1 transition-all duration-200">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+interface ActionBubbleProps {
+  children: React.ReactNode;
+  className: string;
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  expanded: boolean;
+  transformWhenClosed: string;
+  transformWhenOpen: string;
+  delayMs?: number;
+}
+
+function ActionBubble({ children, className, active, label, onClick, expanded, transformWhenClosed, transformWhenOpen, delayMs = 0 }: ActionBubbleProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`absolute flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_10px_24px_var(--shadow-warm)] ${className}`}
+      style={{
+        borderColor: active ? "var(--accent)" : "var(--ink)",
+        backgroundColor: active ? "var(--accent)" : "var(--cream)",
+        opacity: expanded ? 1 : 0,
+        transform: expanded ? transformWhenOpen : transformWhenClosed,
+        transitionProperty: "transform, opacity",
+        transitionDuration: expanded ? "320ms" : "200ms",
+        transitionTimingFunction: expanded ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in",
+        transitionDelay: expanded ? `${delayMs}ms` : "0ms",
+      }}
+      title={label}
+      aria-label={label}
+    >
+      {children}
+    </button>
   );
 }

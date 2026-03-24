@@ -8,13 +8,14 @@ interface RecipeHeaderProps {
   onBack: () => void;
   onFavorite: () => void;
   onSave: () => void;
+  showActions?: boolean;
 }
 
 /**
  * Sticky header bar for recipe detail page.
  * Shows title, back button, favorite and save buttons.
  */
-export function RecipeHeader({ recipe, onBack, onFavorite, onSave }: RecipeHeaderProps) {
+export function RecipeHeader({ recipe, onBack, onFavorite, onSave, showActions = true }: RecipeHeaderProps) {
   return (
     <div
       className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 border-b"
@@ -39,6 +40,8 @@ export function RecipeHeader({ recipe, onBack, onFavorite, onSave }: RecipeHeade
 
       {/* Action buttons */}
       <div className="flex items-center gap-1.5 shrink-0">
+        {!showActions ? <div className="w-[78px]" /> : (
+          <>
         {/* Favorite button */}
         <button
           onClick={onFavorite}
@@ -72,6 +75,8 @@ export function RecipeHeader({ recipe, onBack, onFavorite, onSave }: RecipeHeade
         >
           <BookmarkPlus size={16} style={{ color: recipe.cookbookCategory ? "#fff" : "var(--ink)" }} />
         </button>
+          </>
+        )}
       </div>
     </div>
   );

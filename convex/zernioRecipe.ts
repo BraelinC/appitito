@@ -1,5 +1,6 @@
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
+import { getAppUrl } from "./lib/appUrl";
 
 /**
  * Fast recipe extraction from reel caption using Gemini
@@ -87,7 +88,7 @@ ${instructionsList}
 ⏱️ ${recipe.prepTime || "15 mins"} prep | ${recipe.cookTime || "20 mins"} cook
 
 Save the full recipe: 
-👉 https://appitito.com/recipe/${reelId}`;
+👉 ${getAppUrl()}/recipe/${reelId}`;
 
     // Send reply via Zernio
     const zernioKey = process.env.ZERNIO_API_KEY;

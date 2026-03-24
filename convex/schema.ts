@@ -147,4 +147,10 @@ export default defineSchema({
   })
     .index("by_instagram_id", ["instagramId"])
     .index("by_clerk_user", ["clerkUserId"]),
+
+  recipeDeliveries: defineTable({
+    instagramId: v.string(),
+    recipeId: v.string(),
+    deliveredAt: v.number(),
+  }).index("by_instagram_id_and_delivered_at", ["instagramId", "deliveredAt"]),
 });
