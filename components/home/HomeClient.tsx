@@ -138,7 +138,7 @@ function AnonymousLanding() {
 
         <div className="mt-4">
           <a
-            href={buttonEnabled ? "https://urlgeni.us/instagram/d9FIvX/reel" : undefined}
+            href={buttonEnabled ? "https://urlgeni.us/instagram/28azlZ/reel" : undefined}
             onClick={(e) => !buttonEnabled && e.preventDefault()}
             className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity"
             style={{
