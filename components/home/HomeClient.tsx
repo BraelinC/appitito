@@ -82,6 +82,7 @@ function AnonymousLanding() {
             muted
             playsInline
             preload="auto"
+            controls
             poster="/video-poster.jpg"
             onTimeUpdate={handleTimeUpdate}
           >
