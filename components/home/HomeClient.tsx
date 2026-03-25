@@ -85,7 +85,7 @@ function AnonymousLanding() {
       >
         <div className="flex items-center justify-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mouse.webp" alt="Appitito" className="w-5 h-5" />
+          <img src="/logo-mouse.webp" alt="Appitito" className="w-8 h-8 rounded-full object-cover" />
           <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
             Appitito
           </p>
@@ -166,7 +166,7 @@ function OnboardingState() {
       >
         <div className="flex items-center justify-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mouse.webp" alt="Appitito" className="w-5 h-5" />
+          <img src="/logo-mouse.webp" alt="Appitito" className="w-8 h-8 rounded-full object-cover" />
           <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
             Appitito
           </p>
