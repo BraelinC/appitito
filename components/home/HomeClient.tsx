@@ -81,7 +81,7 @@ function AnonymousLanding() {
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <a
-            href="instagram://user?username=appitito"
+            href="https://urlgeni.us/instagram/d9FIvX/reel"
             className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
             style={{ backgroundColor: "var(--accent)", color: "#fff" }}
           >
