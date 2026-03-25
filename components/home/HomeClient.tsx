@@ -105,7 +105,16 @@ function AnonymousLanding() {
               {
                 objectFit: "cover",
                 aspectRatio: "9 / 16",
-                "--controls": showControls ? "visible" : "none"
+                "--controls": showControls ? "visible" : "none",
+                "--seek-backward-button": "none",
+                "--seek-forward-button": "none",
+                "--playback-rate-button": "none",
+                "--rendition-selectmenu": "none",
+                "--audio-track-selectmenu": "none",
+                "--captions-button": "none",
+                "--airplay-button": "none",
+                "--pip-button": "none",
+                "--cast-button": "none"
               } as any
             }
             onTimeUpdate={handleTimeUpdate}
