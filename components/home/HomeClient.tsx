@@ -78,7 +78,7 @@ export function HomeClient() {
 
 function AnonymousLanding() {
   const [buttonEnabled, setButtonEnabled] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(15);
+  const [timeRemaining, setTimeRemaining] = useState(25);
   const [showControls, setShowControls] = useState(false);
 
   useEffect(() => {
@@ -103,10 +103,10 @@ function AnonymousLanding() {
 
     const elapsed = Math.floor(video.currentTime || 0);
 
-    if (elapsed >= 15) {
+    if (elapsed >= 25) {
       setButtonEnabled(true);
     } else {
-      setTimeRemaining(15 - elapsed);
+      setTimeRemaining(25 - elapsed);
     }
   };
 
