@@ -83,9 +83,13 @@ function AnonymousLanding() {
         className="w-full max-w-md rounded-[2rem] border px-6 py-6 text-center shadow-[0_18px_50px_var(--shadow-warm)]"
         style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}
       >
-        <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
-          Appetito
-        </p>
+        <div className="flex items-center justify-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mouse.png" alt="Appitito" className="w-5 h-5" />
+          <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
+            Appitito
+          </p>
+        </div>
 
         {/* Video placeholder - replace src with your screen recording */}
         <div
@@ -160,9 +164,13 @@ function OnboardingState() {
         className="pointer-events-auto relative mx-auto w-full max-w-xl rounded-[2rem] border px-6 py-10 text-center shadow-[0_18px_50px_var(--shadow-warm)]"
         style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}
       >
-        <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
-          Appetito
-        </p>
+        <div className="flex items-center justify-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mouse.png" alt="Appitito" className="w-5 h-5" />
+          <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
+            Appitito
+          </p>
+        </div>
         <h2 className="mt-3 font-display text-3xl leading-tight" style={{ color: "var(--ink)" }}>
           You&apos;re in. Now go get hungry and DM me.
         </h2>
