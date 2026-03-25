@@ -1037,45 +1037,29 @@ async function extractRecipeFromVideo(reel: ReelContext): Promise<VideoExtractio
   }
 
   try {
-    const videoResponse = await fetch(reel.videoUrl);
-    if (!videoResponse.ok) {
-      console.error("[Recipe] Failed to download reel video:", videoResponse.status);
-      return { recipe: null };
-    }
-
-    // Check video size before loading (limit to 50MB)
-    const contentLength = videoResponse.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
-      console.error("[Recipe] Video too large to process:", contentLength, "bytes");
-      return { recipe: null };
-    }
-
-    const videoBytes = await videoResponse.arrayBuffer();
-    const mimeType = videoResponse.headers.get("content-type") || "video/mp4";
-    const dataUrl = `data:${mimeType};base64,${arrayBufferToBase64(videoBytes)}`;
-
+    // Send video URL directly to OpenRouter/Gemini - no download or encoding needed!
     const result = await requestVideoRecipeExtraction([
-    {
-      role: "user",
-      content: [
-        {
-          type: "text",
-          text:
-            `Watch this cooking reel and extract the actual recipe only if the video clearly contains it. ` +
-            `Ingredients and instructions must both be present to count as a successful extraction. ` +
-            `Also choose the best second to capture a thumbnail when the finished dish looks most appealing. ` +
-            `If the finished dish never clearly appears, choose either the first useful plated moment or the final frame. ` +
-            `If the video still does not reveal enough information, return empty arrays for the missing sections.`,
-        },
-        {
-          type: "video_url",
-          video_url: {
-            url: dataUrl,
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `Watch this cooking reel and extract the actual recipe only if the video clearly contains it. ` +
+              `Ingredients and instructions must both be present to count as a successful extraction. ` +
+              `Also choose the best second to capture a thumbnail when the finished dish looks most appealing. ` +
+              `If the finished dish never clearly appears, choose either the first useful plated moment or the final frame. ` +
+              `If the video still does not reveal enough information, return empty arrays for the missing sections.`,
           },
-        },
-      ],
-    },
-  ], reel);
+          {
+            type: "video_url",
+            video_url: {
+              url: reel.videoUrl,  // Direct URL - OpenRouter downloads it
+            },
+          },
+        ],
+      },
+    ], reel);
 
     return result;
   } catch (error) {
