@@ -88,7 +88,11 @@ function AnonymousLanding() {
         </p>
 
         {/* Video placeholder - replace src with your screen recording */}
-        <div className="mt-4 overflow-hidden rounded-2xl bg-black mx-auto" style={{ aspectRatio: "9 / 16", maxHeight: "55vh" }}>
+        <div
+          className="mt-4 overflow-hidden rounded-2xl bg-black mx-auto"
+          style={{ aspectRatio: "9 / 16", maxHeight: "55vh", cursor: showControls ? "default" : "pointer" }}
+          onClick={handleVideoClick}
+        >
           <MuxPlayer
             playbackId="L54cq8RcXDgl1ErbkkuCvqD7FYsp6V005G9grDbt2zqU"
             streamType="on-demand"
@@ -105,7 +109,6 @@ function AnonymousLanding() {
               } as any
             }
             onTimeUpdate={handleTimeUpdate}
-            onClick={handleVideoClick}
           />
         </div>
 
