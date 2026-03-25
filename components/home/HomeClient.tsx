@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import MuxPlayer from "@mux/mux-player-react";
@@ -17,6 +17,13 @@ export function HomeClient() {
   const [billingOpen, setBillingOpen] = useState(searchParams.get("billing") === "1");
 
   const { isLoaded, user } = useUser();
+
+  // Clear the "clicked message button" flag when user becomes authenticated
+  useEffect(() => {
+    if (isLoaded && user) {
+      localStorage.removeItem("appitito_clicked_message_button");
+    }
+  }, [isLoaded, user]);
 
   // Query onboarding status based on delivered recipe count
   const onboardingStatus = useQuery(
@@ -49,13 +56,30 @@ function AnonymousLanding() {
   const [buttonEnabled, setButtonEnabled] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(15);
   const [showControls, setShowControls] = useState(false);
+  const { openSignIn } = useClerk();
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
+
+    // Check if user has already watched the video before
+    const hasWatchedVideo = localStorage.getItem("appitito_watched_video");
+    // Check if user has clicked the message button before
+    const hasClickedButton = localStorage.getItem("appitito_clicked_message_button");
+
+    if (hasWatchedVideo === "true" || hasClickedButton === "true") {
+      setButtonEnabled(true);
+      setTimeRemaining(0);
+    }
+
+    // If user has clicked the button before, immediately open sign-in modal
+    if (hasClickedButton === "true") {
+      openSignIn();
+    }
+
     return () => {
       document.body.style.overflow = "";
     };
-  }, []);
+  }, [openSignIn]);
 
   const handleTimeUpdate = (e: any) => {
     const video = e.target;
@@ -105,6 +129,7 @@ function AnonymousLanding() {
             muted
             playsInline
             nohotkeys
+            thumbnailTime={30}
             className="w-full h-full"
             style={
               showControls ? {
@@ -139,7 +164,15 @@ function AnonymousLanding() {
         <div className="mt-4">
           <a
             href={buttonEnabled ? "https://urlgeni.us/instagram/28azlZ/reel" : undefined}
-            onClick={(e) => !buttonEnabled && e.preventDefault()}
+            onClick={(e) => {
+              if (!buttonEnabled) {
+                e.preventDefault();
+              } else {
+                // Save flags when user clicks the button
+                localStorage.setItem("appitito_watched_video", "true");
+                localStorage.setItem("appitito_clicked_message_button", "true");
+              }
+            }}
             className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity"
             style={{
               backgroundColor: "var(--accent)",
