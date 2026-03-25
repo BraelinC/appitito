@@ -1632,11 +1632,11 @@ async function recordRecipeDeliveryAndMaybeWarn(
     recipeId,
   });
 
-  if (!usage.hasActiveSubscription && usage.weeklyCount === 1) {
+  if (!usage.hasActiveSubscription && usage.weeklyCount === 2) {
     await sendZernioReply(
       accountId,
       conversationId,
-      "Hey, you're going to hit your weekly limit. You'll have one more for the week."
+      "Hey, you've used your 3 free recipes for this week. Upgrade to keep turning reels into recipes."
     );
   }
 }
