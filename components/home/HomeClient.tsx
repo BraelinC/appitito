@@ -57,9 +57,11 @@ function AnonymousLanding() {
     };
   }, []);
 
-  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    const elapsed = Math.floor(video.currentTime);
+  const handleTimeUpdate = (e: any) => {
+    const video = e.target;
+    if (!video) return;
+
+    const elapsed = Math.floor(video.currentTime || 0);
 
     if (elapsed >= 15) {
       setButtonEnabled(true);
