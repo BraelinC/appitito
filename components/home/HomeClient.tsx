@@ -73,7 +73,7 @@ function AnonymousLanding() {
         </p>
 
         {/* Video placeholder - replace src with your screen recording */}
-        <div className="mt-6 overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh" }}>
+        <div className="mt-6 overflow-hidden rounded-2xl bg-black mx-auto" style={{ aspectRatio: "9 / 16", maxHeight: "50vh" }}>
           <video
             className="w-full h-full"
             style={{ objectFit: "cover" }}
@@ -92,9 +92,6 @@ function AnonymousLanding() {
         <h2 className="mt-6 font-display text-2xl leading-tight" style={{ color: "var(--ink)" }}>
           Send me a reel
         </h2>
-        <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--ink-secondary)" }}>
-          DM any cooking reel to my Instagram and I&apos;ll turn it into a recipe for you.
-        </p>
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <a
