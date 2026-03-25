@@ -47,6 +47,7 @@ export function HomeClient() {
 function AnonymousLanding() {
   const [buttonEnabled, setButtonEnabled] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(15);
+  const [showControls, setShowControls] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -64,6 +65,10 @@ function AnonymousLanding() {
     } else {
       setTimeRemaining(15 - elapsed);
     }
+  };
+
+  const handleVideoClick = () => {
+    setShowControls(true);
   };
 
   return (
@@ -89,9 +94,10 @@ function AnonymousLanding() {
             muted
             playsInline
             preload="auto"
-            controls
+            controls={showControls}
             poster="/video-poster.jpg"
             onTimeUpdate={handleTimeUpdate}
+            onClick={handleVideoClick}
           >
             <source src="/demo.mp4" type="video/mp4" />
           </video>
