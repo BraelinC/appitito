@@ -148,9 +148,11 @@ export const saveRecipeToUserCookbook = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    // If saving to favorites category, mark as favorited
+    const isFavorited = args.cookbookCategory === "favorites";
     return await ctx.db.insert("userRecipes", {
       ...args,
-      isFavorited: false,
+      isFavorited,
       createdAt: now,
       updatedAt: now,
     });
