@@ -97,11 +97,13 @@ function AnonymousLanding() {
             muted
             playsInline
             className="w-full h-full"
-            style={{
-              objectFit: "cover",
-              aspectRatio: "9 / 16",
-              "--controls": showControls ? "visible" : "none"
-            } as React.CSSProperties}
+            style={
+              {
+                objectFit: "cover",
+                aspectRatio: "9 / 16",
+                "--controls": showControls ? "visible" : "none"
+              } as any
+            }
             onTimeUpdate={handleTimeUpdate}
             onClick={handleVideoClick}
           />
