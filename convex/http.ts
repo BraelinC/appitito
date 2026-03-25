@@ -257,10 +257,12 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
           }) as {
             clerkUserId?: string;
             onboardingClaimedAt?: number;
+            onboardingSentAt?: number;
           } | null;
           const isLinkedUser = Boolean(instagramUser?.clerkUserId || instagramUser?.onboardingClaimedAt);
+          const hasReceivedOnboarding = Boolean(instagramUser?.onboardingSentAt);
 
-          if (!isLinkedUser) {
+          if (!isLinkedUser && !hasReceivedOnboarding) {
             await sendDirectOnboardingReply(ctx, {
               accountId,
               conversationId,

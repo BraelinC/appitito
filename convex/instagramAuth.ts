@@ -780,3 +780,47 @@ export const resetInstagramUser = mutation({
     return { success: true, instagramId, clerkUserId, deleted };
   },
 });
+
+/**
+ * Clean up orphaned data by Instagram ID (when instagramUser record is already deleted)
+ */
+export const cleanupByInstagramId = mutation({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const deleted: Record<string, number> = {};
+
+    // Delete recipeAuthTokens
+    const authTokens = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_instagram", (q) => q.eq("instagramId", instagramId))
+      .collect();
+    for (const token of authTokens) {
+      await ctx.db.delete(token._id);
+    }
+    deleted.recipeAuthTokens = authTokens.length;
+
+    // Delete recipeDeliveries
+    const deliveries = await ctx.db
+      .query("recipeDeliveries")
+      .withIndex("by_instagram_id_and_delivered_at", (q) => q.eq("instagramId", instagramId))
+      .collect();
+    for (const delivery of deliveries) {
+      await ctx.db.delete(delivery._id);
+    }
+    deleted.recipeDeliveries = deliveries.length;
+
+    // Delete dmWebhookEvents
+    const webhookEvents = await ctx.db
+      .query("dmWebhookEvents")
+      .withIndex("by_sender", (q) => q.eq("senderId", instagramId))
+      .collect();
+    for (const event of webhookEvents) {
+      await ctx.db.delete(event._id);
+    }
+    deleted.dmWebhookEvents = webhookEvents.length;
+
+    return { success: true, instagramId, deleted };
+  },
+});

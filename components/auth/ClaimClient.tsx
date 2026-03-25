@@ -13,6 +13,8 @@ export function ClaimClient() {
   const { isLoaded, isSignedIn } = useUser();
   const authToken = searchParams.get("auth");
   const [status] = useState<"loading" | "success" | "error">("loading");
+  const [linkingStatus, setLinkingStatus] = useState<"idle" | "linking" | "success" | "error">("idle");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (authToken) {
@@ -38,6 +40,38 @@ export function ClaimClient() {
       return;
     }
   }, [authToken, isLoaded, isSignedIn, router]);
+
+  // Link Instagram account for signed-in users
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !authToken || linkingStatus !== "idle") {
+      return;
+    }
+
+    // User is signed in and has auth token - link the account
+    setLinkingStatus("linking");
+
+    fetch("/api/dm-auth/claim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authToken }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          setLinkingStatus("success");
+          setTimeout(() => {
+            router.push("/");
+          }, 1500);
+        } else {
+          setLinkingStatus("error");
+          setErrorMessage(data.error || "Failed to link account");
+        }
+      })
+      .catch(() => {
+        setLinkingStatus("error");
+        setErrorMessage("An unexpected error occurred");
+      });
+  }, [authToken, isLoaded, isSignedIn, linkingStatus, router]);
 
   const currentUrl = authToken ? `/claim?auth=${encodeURIComponent(authToken)}` : "/claim";
 
@@ -81,6 +115,31 @@ export function ClaimClient() {
             </>
           ) : status === "loading" ? (
             <MinimalLoadingState />
+          ) : linkingStatus === "linking" ? (
+            <>
+              <MinimalLoadingState />
+              <p className="mt-3 text-sm" style={{ color: "var(--ink-secondary)" }}>
+                Linking your Instagram account...
+              </p>
+            </>
+          ) : linkingStatus === "success" ? (
+            <>
+              <h2 className="mt-3 font-display text-3xl leading-tight" style={{ color: "var(--ink)" }}>
+                Account linked!
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--ink-secondary)" }}>
+                Redirecting you to your cookbooks...
+              </p>
+            </>
+          ) : linkingStatus === "error" ? (
+            <>
+              <h2 className="mt-3 font-display text-3xl leading-tight" style={{ color: "var(--ink)" }}>
+                Oops! Something went wrong
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--ink-secondary)" }}>
+                {errorMessage || "Failed to link your account. Please try again."}
+              </p>
+            </>
           ) : (
             <>
               <h2 className="mt-3 font-display text-3xl leading-tight" style={{ color: "var(--ink)" }}>
@@ -92,7 +151,7 @@ export function ClaimClient() {
             </>
           )}
 
-          {isLoaded && isSignedIn && status !== "loading" && (
+          {isLoaded && isSignedIn && status !== "loading" && linkingStatus !== "linking" && linkingStatus !== "success" && (
             <div className="mt-8 flex flex-col items-center gap-3">
               <Link
                 href="https://linktw.in/cMlROV"

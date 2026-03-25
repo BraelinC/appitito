@@ -141,6 +141,7 @@ export default defineSchema({
     zernioAccountId: v.optional(v.string()),
     zernioConversationId: v.optional(v.string()),
     onboardingClaimedAt: v.optional(v.number()),
+    onboardingSentAt: v.optional(v.number()),
     lastReelReceivedAt: v.optional(v.number()),
     onboardingReminderSentAt: v.optional(v.number()),
     hasSeenInstacartTip: v.optional(v.boolean()),
