@@ -100,26 +100,28 @@ function AnonymousLanding() {
             loop
             muted
             playsInline
+            nohotkeys
             className="w-full h-full"
             style={
-              {
+              showControls ? {
                 objectFit: "cover",
                 aspectRatio: "9 / 16",
-                "--controls": showControls ? "visible" : "none",
                 "--seek-backward-button": "none",
                 "--seek-forward-button": "none",
-                "--playback-rate-button": "none",
-                "--rendition-selectmenu": "none",
-                "--audio-track-selectmenu": "none",
-                "--captions-button": "none",
-                "--airplay-button": "none",
-                "--pip-button": "none",
-                "--cast-button": "none",
                 "--mute-button": "none",
                 "--volume-range": "none",
                 "--time-display": "none",
                 "--duration-display": "none",
-                "--fullscreen-button": "none"
+                "--fullscreen-button": "none",
+                "--captions-button": "none",
+                "--airplay-button": "none",
+                "--pip-button": "none",
+                "--cast-button": "none",
+                "--playback-rate-button": "none"
+              } as any : {
+                objectFit: "cover",
+                aspectRatio: "9 / 16",
+                "--controls": "none"
               } as any
             }
             onTimeUpdate={handleTimeUpdate}
