@@ -61,11 +61,11 @@ function AnonymousLanding() {
 
   return (
     <main
-      className="flex min-h-screen flex-col items-center justify-center px-4 py-8"
+      className="flex h-screen flex-col items-center justify-center px-4 overflow-hidden"
       style={{ backgroundColor: "var(--bg)" }}
     >
       <div
-        className="w-full max-w-md rounded-[2rem] border px-6 py-8 text-center shadow-[0_18px_50px_var(--shadow-warm)]"
+        className="w-full max-w-md rounded-[2rem] border px-6 py-6 text-center shadow-[0_18px_50px_var(--shadow-warm)]"
         style={{ backgroundColor: "var(--panel)", borderColor: "var(--line)" }}
       >
         <p className="text-xs uppercase tracking-[0.28em]" style={{ color: "var(--ink-muted)" }}>
@@ -73,7 +73,7 @@ function AnonymousLanding() {
         </p>
 
         {/* Video placeholder - replace src with your screen recording */}
-        <div className="mt-6 overflow-hidden rounded-2xl bg-black mx-auto" style={{ aspectRatio: "9 / 16", maxHeight: "50vh" }}>
+        <div className="mt-4 overflow-hidden rounded-2xl bg-black mx-auto" style={{ aspectRatio: "9 / 16", maxHeight: "55vh" }}>
           <video
             className="w-full h-full"
             style={{ objectFit: "cover" }}
@@ -89,11 +89,11 @@ function AnonymousLanding() {
           </video>
         </div>
 
-        <h2 className="mt-6 font-display text-2xl leading-tight" style={{ color: "var(--ink)" }}>
+        <h2 className="mt-4 font-display text-2xl leading-tight" style={{ color: "var(--ink)" }}>
           Send me a reel
         </h2>
 
-        <div className="mt-6 flex flex-col items-center gap-3">
+        <div className="mt-4">
           <a
             href={buttonEnabled ? "https://urlgeni.us/instagram/d9FIvX/reel" : undefined}
             onClick={(e) => !buttonEnabled && e.preventDefault()}
@@ -107,9 +107,6 @@ function AnonymousLanding() {
           >
             {buttonEnabled ? "Message @appitito" : `Watch video (${timeRemaining}s)`}
           </a>
-          <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
-            Tap Message on my profile to send a cooking reel
-          </p>
         </div>
       </div>
     </main>
