@@ -1036,17 +1036,25 @@ async function extractRecipeFromVideo(reel: ReelContext): Promise<VideoExtractio
     return { recipe: null };
   }
 
-  const videoResponse = await fetch(reel.videoUrl);
-  if (!videoResponse.ok) {
-    console.error("[Recipe] Failed to download reel video:", videoResponse.status);
-    return { recipe: null };
-  }
+  try {
+    const videoResponse = await fetch(reel.videoUrl);
+    if (!videoResponse.ok) {
+      console.error("[Recipe] Failed to download reel video:", videoResponse.status);
+      return { recipe: null };
+    }
 
-  const videoBytes = await videoResponse.arrayBuffer();
-  const mimeType = videoResponse.headers.get("content-type") || "video/mp4";
-  const dataUrl = `data:${mimeType};base64,${arrayBufferToBase64(videoBytes)}`;
+    // Check video size before loading (limit to 50MB)
+    const contentLength = videoResponse.headers.get("content-length");
+    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
+      console.error("[Recipe] Video too large to process:", contentLength, "bytes");
+      return { recipe: null };
+    }
 
-  const result = await requestVideoRecipeExtraction([
+    const videoBytes = await videoResponse.arrayBuffer();
+    const mimeType = videoResponse.headers.get("content-type") || "video/mp4";
+    const dataUrl = `data:${mimeType};base64,${arrayBufferToBase64(videoBytes)}`;
+
+    const result = await requestVideoRecipeExtraction([
     {
       role: "user",
       content: [
@@ -1069,7 +1077,11 @@ async function extractRecipeFromVideo(reel: ReelContext): Promise<VideoExtractio
     },
   ], reel);
 
-  return result;
+    return result;
+  } catch (error) {
+    console.error("[Recipe] Error processing video:", error);
+    return { recipe: null };
+  }
 }
 
 async function requestRecipeExtraction(messages: unknown[], reel: ReelContext): Promise<RecipeDraft | null> {
