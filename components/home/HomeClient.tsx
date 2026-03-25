@@ -73,9 +73,10 @@ function AnonymousLanding() {
         </p>
 
         {/* Video placeholder - replace src with your screen recording */}
-        <div className="mt-6 overflow-hidden rounded-2xl bg-black">
+        <div className="mt-6 overflow-hidden rounded-2xl bg-black" style={{ aspectRatio: "9 / 16", maxHeight: "60vh" }}>
           <video
-            className="w-full"
+            className="w-full h-full"
+            style={{ objectFit: "cover" }}
             autoPlay
             loop
             muted
