@@ -289,6 +289,7 @@ export const storeExternalAuthToken = internalMutation({
         firstName: args.firstName,
         zernioAccountId: args.accountId,
         zernioConversationId: args.conversationId,
+        onboardingSentAt: Date.now(),
         createdAt: Date.now(),
         lastSeenAt: Date.now(),
       });
@@ -298,6 +299,7 @@ export const storeExternalAuthToken = internalMutation({
         firstName: args.firstName ?? existingUser.firstName,
         zernioAccountId: args.accountId ?? existingUser.zernioAccountId,
         zernioConversationId: args.conversationId ?? existingUser.zernioConversationId,
+        onboardingSentAt: existingUser.onboardingSentAt ?? Date.now(),
         lastSeenAt: Date.now(),
       });
     }
