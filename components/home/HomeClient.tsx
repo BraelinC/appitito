@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import MuxPlayer from "@mux/mux-player-react";
 
 import { Header } from "@/components/Header";
 import { CookbookGrid } from "@/components/cookbook/CookbookGrid";
@@ -86,21 +87,22 @@ function AnonymousLanding() {
 
         {/* Video placeholder - replace src with your screen recording */}
         <div className="mt-4 overflow-hidden rounded-2xl bg-black mx-auto" style={{ aspectRatio: "9 / 16", maxHeight: "55vh" }}>
-          <video
-            className="w-full h-full"
-            style={{ objectFit: "cover" }}
-            autoPlay
+          <MuxPlayer
+            playbackId="L54cq8RcXDgl1ErbkkuCvqD7FYsp6V005G9grDbt2zqU"
+            streamType="on-demand"
+            autoPlay="muted"
             loop
             muted
             playsInline
-            preload="auto"
             controls={showControls}
-            poster="/video-poster.jpg"
+            className="w-full h-full"
+            style={{
+              objectFit: "cover",
+              aspectRatio: "9 / 16"
+            }}
             onTimeUpdate={handleTimeUpdate}
             onClick={handleVideoClick}
-          >
-            <source src="/demo.mp4" type="video/mp4" />
-          </video>
+          />
         </div>
 
         <h2 className="mt-4 font-display text-2xl leading-tight" style={{ color: "var(--ink)" }}>
