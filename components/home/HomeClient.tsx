@@ -114,7 +114,12 @@ function AnonymousLanding() {
                 "--captions-button": "none",
                 "--airplay-button": "none",
                 "--pip-button": "none",
-                "--cast-button": "none"
+                "--cast-button": "none",
+                "--mute-button": "none",
+                "--volume-range": "none",
+                "--time-display": "none",
+                "--duration-display": "none",
+                "--fullscreen-button": "none"
               } as any
             }
             onTimeUpdate={handleTimeUpdate}
