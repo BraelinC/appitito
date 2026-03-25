@@ -45,6 +45,20 @@ export function HomeClient() {
 }
 
 function AnonymousLanding() {
+  const [buttonEnabled, setButtonEnabled] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(15);
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = e.currentTarget;
+    const elapsed = Math.floor(video.currentTime);
+
+    if (elapsed >= 15) {
+      setButtonEnabled(true);
+    } else {
+      setTimeRemaining(15 - elapsed);
+    }
+  };
+
   return (
     <main
       className="flex min-h-screen flex-col items-center justify-center px-4 py-8"
@@ -66,7 +80,9 @@ function AnonymousLanding() {
             loop
             muted
             playsInline
+            preload="auto"
             poster="/video-poster.jpg"
+            onTimeUpdate={handleTimeUpdate}
           >
             <source src="/demo.mp4" type="video/mp4" />
           </video>
@@ -81,11 +97,17 @@ function AnonymousLanding() {
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <a
-            href="https://urlgeni.us/instagram/d9FIvX/reel"
-            className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity hover:opacity-90"
-            style={{ backgroundColor: "var(--accent)", color: "#fff" }}
+            href={buttonEnabled ? "https://urlgeni.us/instagram/d9FIvX/reel" : undefined}
+            onClick={(e) => !buttonEnabled && e.preventDefault()}
+            className="inline-flex w-full items-center justify-center rounded-full px-5 py-3.5 text-sm font-semibold transition-opacity"
+            style={{
+              backgroundColor: "var(--accent)",
+              color: "#fff",
+              opacity: buttonEnabled ? 1 : 0.5,
+              cursor: buttonEnabled ? "pointer" : "not-allowed"
+            }}
           >
-            Message @appitito
+            {buttonEnabled ? "Message @appitito" : `Watch video (${timeRemaining}s)`}
           </a>
           <p className="text-xs" style={{ color: "var(--ink-muted)" }}>
             Tap Message on my profile to send a cooking reel
