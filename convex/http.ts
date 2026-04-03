@@ -240,23 +240,17 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
             const hasClaimedOnboarding = Boolean(instagramUser?.onboardingClaimedAt);
             const hasReceivedFirstReel = Boolean(instagramUser?.lastReelReceivedAt);
 
-            // Determine if we need to send onboarding message with auth token
-            const isFirstReelFromNewUser = !hasClerkAccount && !hasClaimedOnboarding && !hasReceivedFirstReel;
+            // Reel messages always get the normal ack — recipe extraction runs regardless
+            await sendZernioReply(
+              accountId,
+              conversationId,
+              `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
+            );
 
-            if (isFirstReelFromNewUser) {
-              // FIRST REEL FROM NEW USER - send onboarding with auth token
-              await sendDirectOnboardingReply(ctx, {
-                accountId,
-                conversationId,
-                instagramId: senderId,
-                instagramUsername: senderUsername,
-                firstName: senderName,
-              });
-            } else if (!hasClerkAccount && !hasClaimedOnboarding) {
-              // SUBSEQUENT REEL FROM UNCLAIMED USER - create auth token but send regular ack
+            // For new users, store onboarding token in background for later claim
+            if (!hasClerkAccount && !hasClaimedOnboarding) {
               const token = crypto.randomUUID();
               const recipeId = `onboarding:${senderId}`;
-
               await ctx.runMutation(internal.instagramAuth.storeExternalAuthToken, {
                 token,
                 instagramId: senderId,
@@ -266,19 +260,6 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
                 accountId,
                 conversationId,
               });
-
-              await sendZernioReply(
-                accountId,
-                conversationId,
-                `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
-              );
-            } else {
-              // EXISTING/CLAIMED USER - normal ack, no auth token
-              await sendZernioReply(
-                accountId,
-                conversationId,
-                `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
-              );
             }
 
             await ctx.runMutation(internal.instagramAuth.markReelReceived, {
@@ -1626,7 +1607,11 @@ async function getRecipeUsageState(ctx: RunCtx, instagramId: string) {
 
   const instagramUser = await ctx.runQuery(api.instagramAuth.getInstagramUser, {
     instagramId,
-  }) as { clerkUserId?: string } | null;
+  }) as { clerkUserId?: string; isPremium?: boolean } | null;
+
+  if (instagramUser?.isPremium) {
+    return { weeklyCount, hasActiveSubscription: true };
+  }
 
   let hasActiveSubscription = false;
   if (instagramUser?.clerkUserId) {

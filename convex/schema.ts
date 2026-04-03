@@ -145,6 +145,7 @@ export default defineSchema({
     lastReelReceivedAt: v.optional(v.number()),
     onboardingReminderSentAt: v.optional(v.number()),
     hasSeenInstacartTip: v.optional(v.boolean()),
+    isPremium: v.optional(v.boolean()),
     createdAt: v.number(),
     lastSeenAt: v.number(),
   })

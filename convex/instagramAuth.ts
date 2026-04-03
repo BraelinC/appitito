@@ -882,3 +882,19 @@ export const cleanupByInstagramId = mutation({
     return { success: true, instagramId, deleted };
   },
 });
+
+export const setPremium = mutation({
+  args: {
+    instagramId: v.string(),
+    isPremium: v.boolean(),
+  },
+  handler: async (ctx, { instagramId, isPremium }) => {
+    const user = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", instagramId))
+      .first();
+    if (!user) return { success: false, reason: "user_not_found" };
+    await ctx.db.patch(user._id, { isPremium });
+    return { success: true, instagramUsername: user.instagramUsername };
+  },
+});
