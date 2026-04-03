@@ -6,6 +6,7 @@ import { verify, receive } from "./instagram/webhook";
 import { callback } from "./instagram/oauth";
 import { getAppUrl } from "./lib/appUrl";
 import { registerRoutes } from "@convex-dev/stripe";
+import Zernio from "@zernio/node";
 
 const http = httpRouter();
 
@@ -305,6 +306,12 @@ http.route({
 
 http.route({
   path: "/zernio/appitito-webhook",
+  method: "POST",
+  handler: zernioWebhookHandler,
+});
+
+http.route({
+  path: "/webhooks/instagram-comments",
   method: "POST",
   handler: zernioWebhookHandler,
 });
@@ -627,64 +634,50 @@ function corsHeaders() {
   };
 }
 
-async function sendZernioReply(accountId: string, conversationId: string, message: string) {
+function getZernioClient() {
   const ZERNIO_API_KEY = process.env.ZERNIO_API_KEY;
   if (!ZERNIO_API_KEY) {
-    console.error("[Zernio] No API key");
-    return;
+    throw new Error("[Zernio] Missing API key");
   }
+  return new Zernio({ apiKey: ZERNIO_API_KEY });
+}
 
+async function sendZernioReply(accountId: string, conversationId: string, message: string) {
   try {
-    const response = await fetch(
-      `https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${ZERNIO_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ accountId, message })
-      }
-    );
-    const result = await response.json();
-    console.log("[Zernio] Reply sent:", result.success ? "✅" : "❌");
+    const zernio = getZernioClient();
+
+    const result = await zernio.messages.sendInboxMessage({
+      path: { conversationId },
+      body: { accountId, message },
+    });
+
+    console.log("[Zernio] Reply sent:", result.data ? "✅" : "❌");
   } catch (err) {
     console.error("[Zernio] Failed to send:", err);
   }
 }
 
 async function sendZernioReplyWithButton(
-  accountId: string, 
-  conversationId: string, 
+  accountId: string,
+  conversationId: string,
   message: string,
   buttonTitle: string,
   buttonUrl: string
 ) {
-  const ZERNIO_API_KEY = process.env.ZERNIO_API_KEY;
-  if (!ZERNIO_API_KEY) {
-    console.error("[Zernio] No API key");
-    return;
-  }
-
   try {
     console.log("[Zernio] Sending button reply URL:", buttonUrl);
-    const response = await fetch(
-      `https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${ZERNIO_API_KEY}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ 
-          accountId, 
-          message,
-          buttons: [{ type: "url", title: buttonTitle, url: buttonUrl }]
-        })
-      }
-    );
-    const result = await response.json();
-    console.log("[Zernio] Button reply sent:", result.success ? "✅" : "❌");
+    const zernio = getZernioClient();
+
+    const result = await zernio.messages.sendInboxMessage({
+      path: { conversationId },
+      body: {
+        accountId,
+        message,
+        buttons: [{ type: "url", title: buttonTitle, url: buttonUrl }],
+      },
+    });
+
+    console.log("[Zernio] Button reply sent:", result.data ? "✅" : "❌");
   } catch (err) {
     console.error("[Zernio] Failed to send button:", err);
   }
@@ -696,30 +689,13 @@ async function sendZernioPrivateReplyToComment(
   commentId: string,
   message: string
 ) {
-  const ZERNIO_API_KEY = process.env.ZERNIO_API_KEY;
-
-  if (!ZERNIO_API_KEY) {
-    console.error("[Zernio] Missing API key for private reply");
-    return;
-  }
-
   try {
-    const response = await fetch(
-      `https://zernio.com/api/v1/inbox/comments/${postId}/${commentId}/private-reply`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${ZERNIO_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ accountId, message }),
-      }
-    );
+    const zernio = getZernioClient();
 
-    if (!response.ok) {
-      console.error("[Zernio] Private reply failed:", await response.text());
-      return;
-    }
+    await zernio.comments.sendPrivateReplyToComment({
+      path: { postId, commentId },
+      body: { accountId, message },
+    });
 
     console.log("[Zernio] Private reply sent for comment:", commentId);
   } catch (error) {
@@ -733,31 +709,13 @@ async function sendZernioPublicReplyToComment(
   commentId: string,
   message: string
 ) {
-  const ZERNIO_API_KEY = process.env.ZERNIO_API_KEY;
-
-  if (!ZERNIO_API_KEY) {
-    console.error("[Zernio] Missing API key for public comment reply");
-    return;
-  }
-
   try {
-    const response = await fetch(`https://zernio.com/api/v1/inbox/comments/${postId}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${ZERNIO_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        accountId,
-        commentId,
-        message,
-      }),
-    });
+    const zernio = getZernioClient();
 
-    if (!response.ok) {
-      console.error("[Zernio] Public comment reply failed:", await response.text());
-      return;
-    }
+    await zernio.comments.replyToInboxPost({
+      path: { postId },
+      body: { accountId, commentId, message },
+    });
 
     console.log("[Zernio] Public comment reply sent:", commentId);
   } catch (error) {
@@ -1375,30 +1333,14 @@ async function chooseThumbnailWithQwen(frames: string[]): Promise<string | null>
 }
 
 async function findConversationIdForInstagramUser(accountId: string, instagramId: string) {
-  const ZERNIO_API_KEY = process.env.ZERNIO_API_KEY;
-  if (!ZERNIO_API_KEY) {
-    return null;
-  }
-
   try {
-    const response = await fetch(
-      `https://zernio.com/api/v1/inbox/conversations?accountId=${encodeURIComponent(accountId)}&platform=instagram&limit=100`,
-      {
-        headers: {
-          Authorization: `Bearer ${ZERNIO_API_KEY}`,
-        },
-      }
-    );
+    const zernio = getZernioClient();
 
-    if (!response.ok) {
-      console.error("[Zernio] Failed to list conversations:", await response.text());
-      return null;
-    }
+    const result = await zernio.messages.listInboxConversations({
+      query: { accountId, platform: "instagram", limit: 100 },
+    });
 
-    const result = await response.json() as {
-      data?: Array<{ id?: string; participantId?: string }>;
-    };
-    const match = result.data?.find((conversation) => conversation.participantId === instagramId);
+    const match = result.data?.data?.find((conversation) => conversation.participantId === instagramId);
     return match?.id ?? null;
   } catch (error) {
     console.error("[Zernio] Error resolving conversation for reminder:", error);
