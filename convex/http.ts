@@ -1422,7 +1422,7 @@ async function findConversationIdForInstagramUser(accountId: string, instagramId
       query: { accountId, platform: "instagram", limit: 100 },
     });
 
-    const match = result.data?.data?.find((conversation) => conversation.participantId === instagramId);
+    const match = result.data?.data?.find((conversation: any) => conversation.participantId === instagramId);
     return match?.id ?? null;
   } catch (error) {
     console.error("[Zernio] Error resolving conversation for reminder:", error);
