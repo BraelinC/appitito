@@ -318,6 +318,46 @@ export const storeExternalAuthToken = internalMutation({
   },
 });
 
+export const markFirstContact = internalMutation({
+  args: {
+    instagramId: v.string(),
+    instagramUsername: v.string(),
+    firstName: v.optional(v.string()),
+    accountId: v.string(),
+    conversationId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existingUser = await ctx.db
+      .query("instagramUsers")
+      .withIndex("by_instagram_id", (q) => q.eq("instagramId", args.instagramId))
+      .first();
+
+    if (!existingUser) {
+      await ctx.db.insert("instagramUsers", {
+        instagramId: args.instagramId,
+        instagramUsername: args.instagramUsername,
+        firstName: args.firstName,
+        zernioAccountId: args.accountId,
+        zernioConversationId: args.conversationId,
+        onboardingSentAt: Date.now(),
+        createdAt: Date.now(),
+        lastSeenAt: Date.now(),
+      });
+    } else {
+      await ctx.db.patch(existingUser._id, {
+        instagramUsername: args.instagramUsername,
+        firstName: args.firstName ?? existingUser.firstName,
+        zernioAccountId: args.accountId ?? existingUser.zernioAccountId,
+        zernioConversationId: args.conversationId ?? existingUser.zernioConversationId,
+        onboardingSentAt: existingUser.onboardingSentAt ?? Date.now(),
+        lastSeenAt: Date.now(),
+      });
+    }
+
+    return { success: true };
+  },
+});
+
 export const markOnboardingClaimed = internalMutation({
   args: {
     instagramId: v.string(),
@@ -436,6 +476,22 @@ export const getWeeklyRecipeDeliveryCount = internalQuery({
       .collect();
 
     return deliveries.length;
+  },
+});
+
+export const getMostRecentToken = internalQuery({
+  args: {
+    instagramId: v.string(),
+  },
+  handler: async (ctx, { instagramId }) => {
+    const tokens = await ctx.db
+      .query("recipeAuthTokens")
+      .withIndex("by_instagram", (q) => q.eq("instagramId", instagramId))
+      .filter((q) => q.eq(q.field("used"), false))
+      .order("desc")
+      .take(1);
+
+    return tokens[0] ?? null;
   },
 });
 

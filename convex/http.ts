@@ -226,18 +226,67 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
             });
           }
 
+          // Check if this is a new user to determine which message to send
           if (senderId) {
+            const instagramUser = await ctx.runQuery(api.instagramAuth.getInstagramUser, {
+              instagramId: senderId,
+            }) as {
+              clerkUserId?: string;
+              onboardingClaimedAt?: number;
+              lastReelReceivedAt?: number;
+            } | null;
+
+            const hasClerkAccount = Boolean(instagramUser?.clerkUserId);
+            const hasClaimedOnboarding = Boolean(instagramUser?.onboardingClaimedAt);
+            const hasReceivedFirstReel = Boolean(instagramUser?.lastReelReceivedAt);
+
+            // Determine if we need to send onboarding message with auth token
+            const isFirstReelFromNewUser = !hasClerkAccount && !hasClaimedOnboarding && !hasReceivedFirstReel;
+
+            if (isFirstReelFromNewUser) {
+              // FIRST REEL FROM NEW USER - send onboarding with auth token
+              await sendDirectOnboardingReply(ctx, {
+                accountId,
+                conversationId,
+                instagramId: senderId,
+                instagramUsername: senderUsername,
+                firstName: senderName,
+              });
+            } else if (!hasClerkAccount && !hasClaimedOnboarding) {
+              // SUBSEQUENT REEL FROM UNCLAIMED USER - create auth token but send regular ack
+              const token = crypto.randomUUID();
+              const recipeId = `onboarding:${senderId}`;
+
+              await ctx.runMutation(internal.instagramAuth.storeExternalAuthToken, {
+                token,
+                instagramId: senderId,
+                instagramUsername: senderUsername,
+                recipeId,
+                firstName: senderName,
+                accountId,
+                conversationId,
+              });
+
+              await sendZernioReply(
+                accountId,
+                conversationId,
+                `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
+              );
+            } else {
+              // EXISTING/CLAIMED USER - normal ack, no auth token
+              await sendZernioReply(
+                accountId,
+                conversationId,
+                `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
+              );
+            }
+
             await ctx.runMutation(internal.instagramAuth.markReelReceived, {
               instagramId: senderId,
               accountId,
               conversationId,
             });
           }
-
-          // Send immediate acknowledgment
-          await sendZernioReply(accountId, conversationId,
-            `Hey ${senderName.split(' ')[0]}! 👋 Got your reel! 🍳\n\nExtracting the recipe now...`
-          );
 
           await ctx.scheduler.runAfter(0, internal.http.processZernioReel, {
             reel: reelContext,
@@ -264,7 +313,8 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
           const hasReceivedOnboarding = Boolean(instagramUser?.onboardingSentAt);
 
           if (!isLinkedUser && !hasReceivedOnboarding) {
-            await sendDirectOnboardingReply(ctx, {
+            // TEXT-ONLY MESSAGE FROM NEW USER - send simple welcome without auth token
+            await sendSimpleWelcomeReply(ctx, {
               accountId,
               conversationId,
               instagramId: senderId,
@@ -272,7 +322,7 @@ const zernioWebhookHandler = httpAction(async (ctx, request) => {
               firstName: senderName,
             });
 
-            return new Response(JSON.stringify({ success: true, action: "direct_onboarding" }), {
+            return new Response(JSON.stringify({ success: true, action: "simple_welcome" }), {
               status: 200,
               headers: { "Content-Type": "application/json" }
             });
@@ -797,6 +847,38 @@ async function sendDirectOnboardingReply(
   );
 }
 
+async function sendSimpleWelcomeReply(
+  ctx: RunCtx,
+  args: {
+    accountId: string;
+    conversationId: string;
+    instagramId: string;
+    instagramUsername: string;
+    firstName?: string;
+  }
+) {
+  console.log("[Onboarding Debug][simple] sending welcome to", args.instagramUsername, args.instagramId);
+
+  // Mark first contact without creating auth token
+  await ctx.runMutation(internal.instagramAuth.markFirstContact, {
+    instagramId: args.instagramId,
+    instagramUsername: args.instagramUsername,
+    firstName: args.firstName,
+    accountId: args.accountId,
+    conversationId: args.conversationId,
+  });
+
+  const appUrl = getAppUrl();
+  console.log("[Onboarding Debug][simple] sending simple welcome link:", appUrl);
+
+  await sendZernioReplyWithButton(
+    args.accountId,
+    args.conversationId,
+    "Hey, try Appitito out",
+    "Try Appitito",
+    appUrl
+  );
+}
 
 async function extractRecipeAndReply(
   ctx: RunCtx,

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ArrowLeft, BookmarkPlus, Heart, ShoppingCart, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { UserRecipe, COOKBOOK_CATEGORIES, isUserRecipe, getRecipeTitle, getRecipeIngredients, getRecipeInstructions } from "@/lib/types";
 import { formatTotalTime } from "@/lib/time";
@@ -16,7 +16,7 @@ import { RecipeHeader } from "./RecipeHeader";
 import { RecipeHero } from "./RecipeHero";
 import { RecipeMetaStrip } from "./RecipeMetaStrip";
 import { RecipeTabs } from "./RecipeTabs";
-import { InstacartTipBubble } from "./InstacartTip";
+import { RecipeActionButtons } from "./RecipeActionButtons";
 import { useDmTokenSignIn } from "@/components/auth/useDmTokenSignIn";
 
 interface Props {
@@ -63,30 +63,47 @@ export function RecipeDetailClient({ id }: Props) {
     rawRecipe === null ? null :
     isUserRecipe(rawRecipe) ? rawRecipe : null;
 
-  const toggleFavorite = useMutation(api.recipes.userRecipes.toggleRecipeFavorite);
-  const canManageRecipe = !!user && recipe?.userId === user.id;
+  const saveToFavorites = useMutation(api.recipes.userRecipes.saveRecipeToUserCookbook);
 
-  async function handleFavorite() {
-    if (!recipe) return;
-    if (!canManageRecipe) {
-      openSignIn();
-      return;
-    }
-
-    try {
-      await toggleFavorite({ userId: user.id, userRecipeId: recipe._id });
-    } catch (error) {
-      console.error("Failed to toggle favorite:", error);
-    }
-  }
-
-  function handleSave() {
+  async function handleSave() {
     if (!user) {
       openSignIn();
       return;
     }
 
-    setShowSaveSheet(true);
+    if (!recipe) return;
+
+    // If already saved, show sheet to pick different category
+    if (recipe.cookbookCategory || recipe.isFavorited) {
+      setShowSaveSheet(true);
+      return;
+    }
+
+    // First save -> auto-save to favorites
+    try {
+      await saveToFavorites({
+        userId: user.id,
+        recipeType: recipe.recipeType,
+        cookbookCategory: "favorites",
+        title: getRecipeTitle(recipe),
+        description: recipe.description,
+        imageUrl: recipe.imageUrl,
+        ingredients: getRecipeIngredients(recipe),
+        instructions: getRecipeInstructions(recipe),
+        servings: recipe.servings,
+        prep_time: recipe.prep_time,
+        cook_time: recipe.cook_time,
+        cuisine: recipe.cuisine,
+        muxPlaybackId: recipe.muxPlaybackId,
+        muxAssetId: recipe.muxAssetId,
+        reelUrl: recipe.reelUrl,
+        instagramReelShortcode: recipe.instagramReelShortcode,
+        extractedRecipeId: recipe.extractedRecipeId,
+        communityRecipeId: recipe.communityRecipeId,
+      });
+    } catch (error) {
+      console.error("Failed to save recipe:", error);
+    }
   }
 
   async function handleCart() {
@@ -174,7 +191,7 @@ export function RecipeDetailClient({ id }: Props) {
       <RecipeHeader
         recipe={recipe}
         onBack={() => router.push("/")}
-        onFavorite={handleFavorite}
+        onFavorite={() => {}}
         onSave={handleSave}
         showActions={false}
       />
@@ -190,10 +207,8 @@ export function RecipeDetailClient({ id }: Props) {
       {/* Content */}
       <div className={`flex-1 px-5 relative z-10 ${recipe.muxPlaybackId || recipe.reelUrl ? "" : "-mt-4"}`}>
         <div className="mb-4 flex items-center gap-3">
-          <RecipeActionCluster
-            isFavorited={recipe.isFavorited}
-            isSaved={!!recipe.cookbookCategory}
-            onFavorite={handleFavorite}
+          <RecipeActionButtons
+            isSaved={recipe.isFavorited || !!recipe.cookbookCategory}
             onSave={handleSave}
             onCart={handleCart}
             cartLoading={cartLoading}
@@ -209,7 +224,7 @@ export function RecipeDetailClient({ id }: Props) {
                 {recipe.description}
               </p>
             )}
-          </RecipeActionCluster>
+          </RecipeActionButtons>
         </div>
 
         <RecipeMetaStrip
@@ -252,277 +267,3 @@ export function RecipeDetailClient({ id }: Props) {
   );
 }
 
-interface RecipeActionClusterProps {
-  isFavorited: boolean;
-  isSaved: boolean;
-  onFavorite: () => void;
-  onSave: () => void;
-  onCart: () => void;
-  cartLoading?: boolean;
-  children?: React.ReactNode;
-  side?: "left" | "right";
-  showInstacartTip?: boolean;
-  onDismissTip?: () => void;
-}
-
-function RecipeActionCluster({ isFavorited, isSaved, onFavorite, onSave, onCart, cartLoading, children, side = "left", showInstacartTip = false, onDismissTip }: RecipeActionClusterProps) {
-  const [expanded, setExpanded] = useState(false);
-  const [tipStage, setTipStage] = useState<"hold" | "cart">("hold");
-  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const holdTriggeredRef = useRef(false);
-  const expandedAtRef = useRef<number>(0);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const triangleSide = 68;
-  const triangleHeight = triangleSide * 0.866;
-  const trianglePositions = {
-    heart: { x: -triangleSide / 2, y: -triangleHeight / 2 },
-    bookmark: { x: triangleSide / 2, y: -triangleHeight / 2 },
-    cart: { x: 0, y: triangleHeight / 2 },
-  };
-
-  // Transition tip stage when cluster expands
-  useEffect(() => {
-    if (expanded && showInstacartTip && tipStage === "hold") {
-      // Delay to let animation complete
-      const timer = setTimeout(() => {
-        setTipStage("cart");
-      }, 400);
-      return () => clearTimeout(timer);
-    }
-  }, [expanded, showInstacartTip, tipStage]);
-
-  useEffect(() => {
-    function handlePointerDown(event: MouseEvent | TouchEvent) {
-      if (!expanded) {
-        return;
-      }
-
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setExpanded(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
-      if (holdTimerRef.current) {
-        clearTimeout(holdTimerRef.current);
-      }
-    };
-  }, [expanded]);
-
-  function startHold() {
-    holdTriggeredRef.current = false;
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-    }
-
-    holdTimerRef.current = setTimeout(() => {
-      holdTriggeredRef.current = true;
-      expandedAtRef.current = Date.now();
-      setExpanded(true);
-    }, 260);
-  }
-
-  function clearHold() {
-    if (holdTimerRef.current) {
-      clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-  }
-
-  function handleBookmarkPress() {
-    if (holdTriggeredRef.current) {
-      holdTriggeredRef.current = false;
-      return;
-    }
-
-    onSave();
-  }
-
-  function handleClusterAction(action: () => void, isCart?: boolean) {
-    // Ignore clicks within 500ms of expansion to prevent accidental taps
-    // (animation takes 320ms, plus buffer for finger lift)
-    if (Date.now() - expandedAtRef.current < 500) {
-      return;
-    }
-    // Dismiss tip when cart is clicked
-    if (isCart && showInstacartTip && onDismissTip) {
-      onDismissTip();
-    }
-    action();
-    setExpanded(false);
-  }
-
-  return (
-    <div className={`flex min-w-0 items-center gap-3 ${side === "right" ? "flex-row-reverse" : ""}`}>
-      <div className={`relative shrink-0 transition-all duration-200 ${expanded ? "h-[148px] w-[148px]" : "h-[72px] w-[72px]"}`}>
-        <div ref={rootRef} className="absolute inset-0">
-        {/* Collapsed bookmark button with "Hold this down" tip */}
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-          <button
-            onMouseDown={startHold}
-            onMouseUp={() => {
-              clearHold();
-              handleBookmarkPress();
-            }}
-            onMouseLeave={clearHold}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              startHold();
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              clearHold();
-              handleBookmarkPress();
-            }}
-            onContextMenu={(event) => event.preventDefault()}
-            className={`relative z-20 flex items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${expanded ? "scale-75 opacity-0 pointer-events-none" : "scale-100 opacity-100"}`}
-            style={{
-              width: 64,
-              height: 64,
-              color: isSaved ? "var(--accent)" : "var(--ink)",
-            }}
-            title="Save to cookbook"
-            aria-pressed={isSaved}
-          >
-            <BookmarkPlus size={34} strokeWidth={1.85} />
-          </button>
-
-          {/* "Hold this down" tip - positioned relative to bookmark button */}
-          {showInstacartTip && tipStage === "hold" && !expanded && (
-            <InstacartTipBubble stage="hold" onDismiss={onDismissTip || (() => {})} />
-          )}
-        </div>
-
-        <div className={`absolute inset-0 ${expanded ? "pointer-events-auto" : "pointer-events-none"}`}>
-        <ActionBubble
-          className="left-1/2 top-1/2"
-          active={isFavorited}
-          label="Add to favourites"
-          onClick={() => handleClusterAction(onFavorite)}
-          expanded={expanded}
-          transformWhenClosed="translate(-50%, -50%) scale(0.35)"
-          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.heart.x}px), calc(-50% + ${trianglePositions.heart.y}px)) scale(1)`}
-          delayMs={0}
-        >
-          <Heart
-            size={20}
-            style={{
-              color: isFavorited ? "#fff" : "var(--ink)",
-              fill: isFavorited ? "#fff" : "transparent",
-            }}
-          />
-        </ActionBubble>
-
-        <ActionBubble
-          className="left-1/2 top-1/2"
-          active={isSaved}
-          label="Save to cookbook"
-          onClick={() => handleClusterAction(onSave)}
-          expanded={expanded}
-          transformWhenClosed="translate(-50%, -50%) scale(0.35)"
-          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.bookmark.x}px), calc(-50% + ${trianglePositions.bookmark.y}px)) scale(1)`}
-          delayMs={35}
-        >
-          <BookmarkPlus size={20} style={{ color: isSaved ? "#fff" : "var(--ink)" }} />
-        </ActionBubble>
-
-        {/* Cart bubble */}
-        <ActionBubble
-          className="left-1/2 top-1/2"
-          active={false}
-          label="Open grocery cart"
-          onClick={() => handleClusterAction(onCart, true)}
-          expanded={expanded}
-          transformWhenClosed="translate(-50%, -50%) scale(0.32)"
-          transformWhenOpen={`translate(calc(-50% + ${trianglePositions.cart.x}px), calc(-50% + ${trianglePositions.cart.y}px)) scale(1)`}
-          delayMs={70}
-        >
-          {cartLoading ? (
-            <Loader2 size={20} className="animate-spin" style={{ color: "var(--ink)" }} />
-          ) : (
-            <ShoppingCart size={20} style={{ color: "var(--ink)" }} />
-          )}
-        </ActionBubble>
-        </div>
-
-        {/* "Shop with Instacart" tip - positioned at cart button location */}
-        {showInstacartTip && tipStage === "cart" && expanded && (
-          <div
-            className="absolute left-1/2 top-1/2 z-50 pointer-events-auto"
-            style={{
-              transform: `translate(calc(-50% + ${trianglePositions.cart.x}px), calc(-50% + ${trianglePositions.cart.y - 48}px))`,
-            }}
-          >
-            <div
-              className="rounded-2xl px-4 py-3 shadow-lg whitespace-nowrap"
-              style={{
-                backgroundColor: "var(--accent)",
-                color: "white",
-              }}
-            >
-              <p className="font-semibold text-sm">Shop with Instacart</p>
-            </div>
-            {/* Arrow pointing down to cart */}
-            <div
-              className="absolute left-1/2 -translate-x-1/2 w-0 h-0"
-              style={{
-                bottom: -8,
-                borderLeft: "8px solid transparent",
-                borderRight: "8px solid transparent",
-                borderTop: "8px solid var(--accent)",
-              }}
-            />
-          </div>
-        )}
-        </div>
-      </div>
-
-      <div className="w-px self-stretch" style={{ backgroundColor: "var(--line)" }} />
-
-      <div className="min-w-0 flex-1 py-1 transition-all duration-200">
-        {children}
-      </div>
-    </div>
-  );
-}
-
-interface ActionBubbleProps {
-  children: React.ReactNode;
-  className: string;
-  active: boolean;
-  label: string;
-  onClick: () => void;
-  expanded: boolean;
-  transformWhenClosed: string;
-  transformWhenOpen: string;
-  delayMs?: number;
-}
-
-function ActionBubble({ children, className, active, label, onClick, expanded, transformWhenClosed, transformWhenOpen, delayMs = 0 }: ActionBubbleProps) {
-  return (
-    <button
-      onClick={onClick}
-      className={`absolute flex h-12 w-12 items-center justify-center rounded-full border shadow-[0_10px_24px_var(--shadow-warm)] ${className}`}
-      style={{
-        borderColor: active ? "var(--accent)" : "var(--ink)",
-        backgroundColor: active ? "var(--accent)" : "var(--cream)",
-        opacity: expanded ? 1 : 0,
-        pointerEvents: expanded ? "auto" : "none",
-        transform: expanded ? transformWhenOpen : transformWhenClosed,
-        transitionProperty: "transform, opacity",
-        transitionDuration: expanded ? "320ms" : "200ms",
-        transitionTimingFunction: expanded ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-in",
-        transitionDelay: expanded ? `${delayMs}ms` : "0ms",
-      }}
-      title={label}
-      aria-label={label}
-    >
-      {children}
-    </button>
-  );
-}
